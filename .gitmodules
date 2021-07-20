@@ -1,0 +1,3 @@
+[submodule ".\\src\\SkeletonTools"]
+	path = .\\src\\SkeletonTools
+	url = https://github.com/TalBarami/SkeletonTools.git
