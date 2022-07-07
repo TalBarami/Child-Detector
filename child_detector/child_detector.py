@@ -35,7 +35,6 @@ class ChildDetector:
         out_kp = np.zeros(kp.shape[1:])
         out_scores = np.zeros(scores.shape[1:])
         M, T, _, _ = kp.shape
-        # vis = MMPoseVisualizer(COCO_LAYOUT)
         try:
             for i in range(T):
                 ret, frame = cap.read()
@@ -50,10 +49,6 @@ class ChildDetector:
                         cid = self.find_nearest(child_box, kp[:, i, :, :], scores[:, i, :])
                         out_kp[i] = kp[cid, i]
                         out_scores[i] = scores[cid, i]
-                    # for j in range(M):
-                    #     frame = vis.draw_skeleton(frame, out_kp[i].astype(int), out_scores[i], edge_color=(0, 0, 255))
-                    # cv2.imwrite(osp.join(r'C:\Users\owner\Downloads\ims', f'{i}.png'), frame)
-
         finally:
             cap.release()
         skeleton['keypoint'] = np.expand_dims(out_kp, axis=0)
