@@ -35,6 +35,7 @@ class ChildDetector:
         out_kp = np.zeros(kp.shape[1:])
         out_scores = np.zeros(scores.shape[1:])
         M, T, _, _ = kp.shape
+        skeleton['child_detected'] = np.ones(T)
         try:
             for i in range(T):
                 ret, frame = cap.read()
@@ -44,6 +45,7 @@ class ChildDetector:
                     children = df[df['class'] == 1]
                     if children.shape[0] != 1:
                         print(f'Error: detected {children.shape[0]} children for frame {i}')
+                        skeleton['child_detected'][i] = 0
                     else:
                         child_box = children.iloc[0]
                         cid = self.find_nearest(child_box, kp[:, i, :, :], scores[:, i, :])
