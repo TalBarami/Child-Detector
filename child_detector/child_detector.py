@@ -32,10 +32,11 @@ class ChildDetector:
         skeleton = skeleton.copy()
         kp = skeleton['keypoint']
         scores = skeleton['keypoint_score']
-        out_kp = np.zeros(kp.shape[1:])
-        out_scores = np.zeros(scores.shape[1:])
+        # out_kp = np.zeros(kp.shape[1:])
+        # out_scores = np.zeros(scores.shape[1:])
         M, T, _, _ = kp.shape
-        skeleton['child_detected'] = np.ones(T)
+        skeleton['child_ids'] = np.ones(T) * -1
+        skeleton['child_detected'] = np.zeros(T)
         try:
             for i in range(T):
                 ret, frame = cap.read()
@@ -43,18 +44,17 @@ class ChildDetector:
                     detections = self.model(frame)
                     df = detections.pandas().xywh[0]
                     children = df[df['class'] == 1]
-                    if children.shape[0] != 1:
-                        print(f'Error: detected {children.shape[0]} children for frame {i}')
-                        skeleton['child_detected'][i] = 0
-                    else:
+                    if children.shape[0] == 1:
                         child_box = children.iloc[0]
                         cid = self.find_nearest(child_box, kp[:, i, :, :], scores[:, i, :])
-                        out_kp[i] = kp[cid, i]
-                        out_scores[i] = scores[cid, i]
+                        skeleton['child_ids'][i] = cid
+                        skeleton['child_detected'][i] = 1
+                        # out_kp[i] = kp[cid, i]
+                        # out_scores[i] = scores[cid, i]
         finally:
             cap.release()
-        skeleton['keypoint'] = np.expand_dims(out_kp, axis=0)
-        skeleton['keypoint_score'] = np.expand_dims(out_scores, axis=0)
+        # skeleton['keypoint'] = np.expand_dims(out_kp, axis=0)
+        # skeleton['keypoint_score'] = np.expand_dims(out_scores, axis=0)
         return skeleton
 
 
