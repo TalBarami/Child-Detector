@@ -1,4 +1,5 @@
 import os
+import random
 import shlex
 import shutil
 import subprocess
@@ -8,16 +9,20 @@ import torch
 import numpy as np
 from os import path as osp
 import cv2
+from torch.utils.data import DataLoader
 
 from skeleton_tools.openpose_layouts.body import BODY_25_LAYOUT, COCO_LAYOUT
 from skeleton_tools.skeleton_visualization.numpy_visualizer import MMPoseVisualizer
 from skeleton_tools.utils.skeleton_utils import bounding_box, box_distance, normalize_json, get_iou
-from skeleton_tools.utils.tools import read_json, get_video_properties, read_pkl
+from skeleton_tools.utils.tools import read_json, get_video_properties, read_pkl, write_pkl
+
+from detection_dataset import ChildDetectionDataset
 
 
 class ChildDetector:
     def __init__(self, model_path=r'C:\research\yolov5\runs\train\exp22\weights\best.pt'):
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
+        self.device = self.model.model.device
 
     def find_nearest(self, child_box, kp, score):
         cb = (child_box['xcenter'], child_box['ycenter']), (child_box['width'] / 1.1, child_box['height'] / 1.3)
@@ -28,46 +33,77 @@ class ChildDetector:
         return nearest
 
     def detect(self, video_path, skeleton):
-        cap = cv2.VideoCapture(video_path)
         skeleton = skeleton.copy()
+        ds = ChildDetectionDataset(video_path, skeleton)
+        dl = DataLoader(dataset=ds, batch_size=32, shuffle=False, num_workers=4)
+        skeleton['child_ids'] = np.ones(len(ds)) * -1
+        skeleton['child_detected'] = np.zeros(len(ds))
+        dfs = []
+        for idxs, frames, keypoints, scores in dl:
+            detections = self.model([x for x in frames.detach().numpy()], size=640)
+            dfs += detections.pandas().xywh
+
         kp = skeleton['keypoint']
-        scores = skeleton['keypoint_score']
-        # out_kp = np.zeros(kp.shape[1:])
-        # out_scores = np.zeros(scores.shape[1:])
-        M, T, _, _ = kp.shape
-        skeleton['child_ids'] = np.ones(T) * -1
-        skeleton['child_detected'] = np.zeros(T)
-        try:
-            for i in range(T):
-                ret, frame = cap.read()
-                if ret:
-                    detections = self.model(frame)
-                    df = detections.pandas().xywh[0]
-                    children = df[df['class'] == 1]
-                    if children.shape[0] == 1:
-                        child_box = children.iloc[0]
-                        cid = self.find_nearest(child_box, kp[:, i, :, :], scores[:, i, :])
-                        skeleton['child_ids'][i] = cid
-                        skeleton['child_detected'][i] = 1
-                        # out_kp[i] = kp[cid, i]
-                        # out_scores[i] = scores[cid, i]
-        finally:
-            cap.release()
-        # skeleton['keypoint'] = np.expand_dims(out_kp, axis=0)
-        # skeleton['keypoint_score'] = np.expand_dims(out_scores, axis=0)
+        kps = skeleton['keypoint_score']
+        for i, df in enumerate(dfs):
+            children = df[df['class'] == 1]
+            if children.shape[0] == 1:
+                child_box = children.iloc[0]
+                cid = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :])
+                skeleton['child_ids'][i] = cid
+                skeleton['child_detected'][i] = 1
         return skeleton
+    # def detect(self, video_path, skeleton):
+    #     cap = cv2.VideoCapture(video_path)
+    #     skeleton = skeleton.copy()
+    #     kp = skeleton['keypoint']
+    #     scores = skeleton['keypoint_score']
+    #     # out_kp = np.zeros(kp.shape[1:])
+    #     # out_scores = np.zeros(scores.shape[1:])
+    #     M, T, _, _ = kp.shape
+    #     skeleton['child_ids'] = np.ones(T) * -1
+    #     skeleton['child_detected'] = np.zeros(T)
+    #     try:
+    #         for i in range(T):
+    #             ret, frame = cap.read()
+    #             if ret:
+    #                 detections = self.model(frame)
+    #                 df = detections.pandas().xywh[0]
+    #                 children = df[df['class'] == 1]
+    #                 if children.shape[0] == 1:
+    #                     child_box = children.iloc[0]
+    #                     cid = self.find_nearest(child_box, kp[:, i, :, :], scores[:, i, :])
+    #                     skeleton['child_ids'][i] = cid
+    #                     skeleton['child_detected'][i] = 1
+    #                     # out_kp[i] = kp[cid, i]
+    #                     # out_scores[i] = scores[cid, i]
+    #     finally:
+    #         cap.release()
+    #     # skeleton['keypoint'] = np.expand_dims(out_kp, axis=0)
+    #     # skeleton['keypoint_score'] = np.expand_dims(out_scores, axis=0)
+    #     return skeleton
 
 
 if __name__ == '__main__':
     root = r'D:\datasets\lancet_submission_data'
-    video_name = '1006723600_PLS_Clinical_090720_0909_2_Tapping_639_644.avi'
-    skeleton_name = f'{osp.splitext(video_name)[0]}.pkl'
+    videos = random.sample(list(os.listdir(r'D:\datasets\lancet_submission_data\segmented_videos')), 10)
+    skeletons = [f'{osp.splitext(v)[0]}.pkl' for v in videos]
 
-    video_path = osp.join(root, 'segmented_videos', video_name)
-    skeleton_path = osp.join(root, 'skeletons', 'raw', skeleton_name)
-
+    vis = MMPoseVisualizer(COCO_LAYOUT)
+    s22, s23 = [], []
     cd = ChildDetector()
-    cd.detect(video_path, read_pkl(skeleton_path))
+    for v, s in zip(videos, skeletons):
+        video_path = osp.join(root, 'segmented_videos', v)
+        skeleton_path = osp.join(root, 'skeletons', 'raw', s)
+        detect = cd.detect(video_path, read_pkl(skeleton_path))
+        vis.create_video(video_path, detect, osp.join(r'D:\datasets\lancet_submission_data\child_detector_test_videos\22', v), child_ids=detect['child_ids'])
+
+    cd = ChildDetector(model_path=r'C:\research\yolov5\runs\train\exp23\weights\best.pt')
+    for v, s in zip(videos, skeletons):
+        video_path = osp.join(root, 'segmented_videos', v)
+        skeleton_path = osp.join(root, 'skeletons', 'raw', s)
+        detect = cd.detect(video_path, read_pkl(skeleton_path))
+        vis.create_video(video_path, detect, osp.join(r'D:\datasets\lancet_submission_data\child_detector_test_videos\23', v), child_ids=detect['child_ids'])
 
 # class ChildDetector:
 #     def __init__(self,
