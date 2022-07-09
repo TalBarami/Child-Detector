@@ -16,7 +16,7 @@ from skeleton_tools.skeleton_visualization.numpy_visualizer import MMPoseVisuali
 from skeleton_tools.utils.skeleton_utils import bounding_box, box_distance, normalize_json, get_iou
 from skeleton_tools.utils.tools import read_json, get_video_properties, read_pkl, write_pkl
 
-from detection_dataset import ChildDetectionDataset
+from child_detector.detection_dataset import ChildDetectionDataset
 
 
 class ChildDetector:
