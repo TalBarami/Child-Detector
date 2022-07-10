@@ -195,6 +195,20 @@ class DataSampler:
             write_json(db, osp.join(self.raw_dir, 'single_person.json'))
 
 
+def generate_file_paths():
+    hadas_dor = {'skeletons_dir': r'D:\datasets\taggin_hadas&dor_remake\skeletons',
+                 'videos_dir': r'D:\datasets\taggin_hadas&dor_remake\segmented_videos'}
+    ofri = {'skeletons_dir': r'D:\datasets\tagging_ofri\skeletons',
+            'videos_dir': r'D:\datasets\tagging_ofri\segmented_videos'}
+    files = {}
+    for ann, db in [('hadas_dor', hadas_dor), ('ofri', ofri)]:
+        files.update({osp.splitext(f)[0]: {'annotator': ann,
+                                           'skeleton': osp.join(db['skeletons_dir'], f)} for f in os.listdir(db['skeletons_dir'])})
+        for file in os.listdir(db['videos_dir']):
+            name = osp.splitext(file)[0]
+            if name in files:
+                files[name]['video'] = osp.join(db['videos_dir'], file)
+    write_json(files, r'D:\datasets\lancet_submission_data\child_detector\raw_data.json')
 
 
 def main():
@@ -210,16 +224,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    # hadas_dor = {'skeletons_dir': r'D:\datasets\taggin_hadas&dor_remake\skeletons',
-    #              'videos_dir': r'D:\datasets\taggin_hadas&dor_remake\segmented_videos'}
-    # ofri = {'skeletons_dir': r'D:\datasets\tagging_ofri\skeletons',
-    #         'videos_dir': r'D:\datasets\tagging_ofri\segmented_videos'}
-    # files = {}
-    # for ann, db in [('hadas_dor', hadas_dor), ('ofri', ofri)]:
-    #     files.update({osp.splitext(f)[0]: {'annotator': ann,
-    #                                        'skeleton': osp.join(db['skeletons_dir'], f)} for f in os.listdir(db['skeletons_dir'])})
-    #     for file in os.listdir(db['videos_dir']):
-    #         name = osp.splitext(file)[0]
-    #         if name in files:
-    #             files[name]['video'] = osp.join(db['videos_dir'], file)
-    # write_json(files, r'D:\datasets\lancet_submission_data\child_detector\raw_data.json')
+
