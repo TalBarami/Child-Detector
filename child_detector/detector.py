@@ -17,10 +17,11 @@ from skeleton_tools.utils.skeleton_utils import bounding_box, box_distance, norm
 from skeleton_tools.utils.tools import read_json, get_video_properties, read_pkl, write_pkl
 
 from child_detector.detection_dataset import ChildDetectionDataset
+from pathlib import Path
 
-
+MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'model.pt')
 class ChildDetector:
-    def __init__(self, model_path=r'C:\research\yolov5\runs\train\exp22\weights\best.pt'):
+    def __init__(self, model_path=MODEL_PATH):
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
         self.device = self.model.model.device
 
