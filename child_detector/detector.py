@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from skeleton_tools.openpose_layouts.body import BODY_25_LAYOUT, COCO_LAYOUT
 from skeleton_tools.skeleton_visualization.numpy_visualizer import MMPoseVisualizer
 from skeleton_tools.utils.skeleton_utils import bounding_box, box_distance, normalize_json, get_iou
-from skeleton_tools.utils.tools import read_json, get_video_properties, read_pkl, write_pkl
+from skeleton_tools.utils.tools import read_json, get_video_properties, read_pkl, write_pkl, init_logger
 
 from child_detector.detection_dataset import ChildDetectionDataset
 from pathlib import Path
@@ -54,6 +54,14 @@ class ChildDetector:
                 skeleton['child_ids'][i] = cid
                 skeleton['child_detected'][i] = 1
         return skeleton
+
+    def filter(self, skeleton):
+        kp = skeleton['keypoint']
+        kps = skeleton['keypoint_score']
+        out = skeleton.copy()
+        out['keypoint'] = np.array([kp[cid, i] for i, cid in enumerate(skeleton['child_ids'])])
+        out['keypoint_score'] = np.array([kps[cid, i] for i, cid in enumerate(skeleton['child_ids'])])
+        return out
     # def detect(self, video_path, skeleton):
     #     cap = cv2.VideoCapture(video_path)
     #     skeleton = skeleton.copy()
@@ -86,6 +94,7 @@ class ChildDetector:
 
 
 if __name__ == '__main__':
+    init_logger()
     root = r'D:\datasets\lancet_submission_data'
     videos = random.sample(list(os.listdir(r'D:\datasets\lancet_submission_data\segmented_videos')), 10)
     skeletons = [f'{osp.splitext(v)[0]}.pkl' for v in videos]
