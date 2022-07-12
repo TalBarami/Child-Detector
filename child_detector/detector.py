@@ -21,17 +21,18 @@ from pathlib import Path
 
 MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'model.pt')
 class ChildDetector:
-    def __init__(self, model_path=MODEL_PATH):
+    def __init__(self, min_iou=0.2, model_path=MODEL_PATH):
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
         self.device = self.model.model.device
+        self.min_iou = min_iou
 
-    def find_nearest(self, child_box, kp, score):
+    def find_nearest(self, child_box, kp, score, return_iou=False):
         cb = (child_box['xcenter'], child_box['ycenter']), (child_box['width'] / 1.1, child_box['height'] / 1.3)
         M = kp.shape[0]
         boxes = [bounding_box(kp[i].T, score[i]) for i in range(M)]
         iou = [get_iou(cb, b) for b in boxes]
         nearest = np.argmax(iou)
-        return nearest
+        return (nearest, np.max(iou)) if return_iou else nearest
 
     def detect(self, video_path, skeleton):
         skeleton = skeleton.copy()
@@ -46,6 +47,7 @@ class ChildDetector:
 
         kp = skeleton['keypoint']
         kps = skeleton['keypoint_score']
+        child_box = None
         for i, df in enumerate(dfs):
             children = df[df['class'] == 1]
             if children.shape[0] == 1:
@@ -53,6 +55,11 @@ class ChildDetector:
                 cid = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :])
                 skeleton['child_ids'][i] = cid
                 skeleton['child_detected'][i] = 1
+            elif child_box is not None:
+                cid, iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :], return_iou=True)
+                if iou > self.min_iou:
+                    skeleton['child_ids'][i] = cid
+                    skeleton['child_detected'][i] = 1
         return skeleton
 
     def filter(self, skeleton):
@@ -94,26 +101,23 @@ class ChildDetector:
 
 
 if __name__ == '__main__':
-    init_logger()
-    root = r'D:\datasets\lancet_submission_data'
-    videos = random.sample(list(os.listdir(r'D:\datasets\lancet_submission_data\segmented_videos')), 10)
-    skeletons = [f'{osp.splitext(v)[0]}.pkl' for v in videos]
-
+    random.seed(0)
+    n = 20
+    skeletons_dir = r'S:\Users\TalBarami\lancet_submission_data\repetitions\child_detect=True\skeletons\train'
+    videos_dir = r'S:\Users\TalBarami\lancet_submission_data\repetitions\train\segmented_videos'
+    out_dir = r'S:\Users\TalBarami\lancet_submission_data\repetitions\child_detect_samples'
+    skeletons = list(os.listdir(skeletons_dir))
+    skeletons = random.sample(skeletons, n)
+    videos = [v for v in os.listdir(videos_dir) if f'{osp.splitext(v)[0]}.pkl' in skeletons]
+    videos.sort()
+    skeletons.sort()
     vis = MMPoseVisualizer(COCO_LAYOUT)
-    s22, s23 = [], []
     cd = ChildDetector()
-    for v, s in zip(videos, skeletons):
-        video_path = osp.join(root, 'segmented_videos', v)
-        skeleton_path = osp.join(root, 'skeletons', 'raw', s)
-        detect = cd.detect(video_path, read_pkl(skeleton_path))
-        vis.create_video(video_path, detect, osp.join(r'D:\datasets\lancet_submission_data\child_detector_test_videos\22', v), child_ids=detect['child_ids'])
 
-    cd = ChildDetector(model_path=r'C:\research\yolov5\runs\train\exp23\weights\best.pt')
-    for v, s in zip(videos, skeletons):
-        video_path = osp.join(root, 'segmented_videos', v)
-        skeleton_path = osp.join(root, 'skeletons', 'raw', s)
-        detect = cd.detect(video_path, read_pkl(skeleton_path))
-        vis.create_video(video_path, detect, osp.join(r'D:\datasets\lancet_submission_data\child_detector_test_videos\23', v), child_ids=detect['child_ids'])
+    for video, skeleton in zip(videos, skeletons):
+        skeleton = read_pkl(osp.join(skeletons_dir, skeleton))
+        skeleton = cd.detect(osp.join(videos_dir, video), skeleton)
+        vis.create_video(osp.join(videos_dir, video), skeleton, osp.join(out_dir, video))
 
 # class ChildDetector:
 #     def __init__(self,
