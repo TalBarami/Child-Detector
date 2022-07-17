@@ -5,6 +5,8 @@ import shutil
 import subprocess
 from copy import deepcopy
 from os import path
+
+import pandas as pd
 import torch
 import numpy as np
 from os import path as osp
@@ -47,19 +49,33 @@ class ChildDetector:
 
         kp = skeleton['keypoint']
         kps = skeleton['keypoint_score']
-        child_box = None
+        reverse_pass, child_box = False, None
+        first_box, first_detection = None, None
         for i, df in enumerate(dfs):
             children = df[df['class'] == 1]
             if children.shape[0] == 1:
                 child_box = children.iloc[0]
+                if first_detection is None:
+                    first_detection, first_box = i, child_box
                 cid = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :])
                 skeleton['child_ids'][i] = cid
                 skeleton['child_detected'][i] = 1
             elif child_box is not None:
                 cid, iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :], return_iou=True)
-                if iou > self.min_iou:
+                if iou >= self.min_iou:
                     skeleton['child_ids'][i] = cid
                     skeleton['child_detected'][i] = 1
+            else:
+                reverse_pass = True
+        if reverse_pass and first_detection is not None:
+            child_box = first_box
+            for i in range(first_detection-1, -1, -1):
+                cid, iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :], return_iou=True)
+                if iou >= self.min_iou:
+                    skeleton['child_ids'][i] = cid
+                    skeleton['child_detected'][i] = 1
+                    (x,y), (w,h) = bounding_box(kp[cid, i].T, kps[cid, i].T)
+                    child_box = {'xcenter': x, 'ycenter': y, 'width': w * 1.1, 'height': h * 1.3, 'confidence': 0, 'class': 1, 'name': 'child'}
         return skeleton
 
     def filter(self, skeleton):
