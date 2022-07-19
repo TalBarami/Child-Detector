@@ -23,8 +23,9 @@ from pathlib import Path
 
 MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'model.pt')
 class ChildDetector:
-    def __init__(self, min_iou=0.2, model_path=MODEL_PATH):
+    def __init__(self, min_iou=0.2, model_path=MODEL_PATH, batch_size=128):
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
+        self.batch_size = batch_size
         self.device = self.model.model.device
         self.min_iou = min_iou
 
@@ -38,13 +39,12 @@ class ChildDetector:
 
     def detect(self, video_path, skeleton):
         skeleton = skeleton.copy()
-        ds = ChildDetectionDataset(video_path, skeleton)
-        dl = DataLoader(dataset=ds, batch_size=32, shuffle=False, num_workers=4)
+        ds = ChildDetectionDataset(video_path, self.batch_size)
         skeleton['child_ids'] = np.ones(len(ds)) * -1
         skeleton['child_detected'] = np.zeros(len(ds))
         dfs = []
-        for idxs, frames, keypoints, scores in dl:
-            detections = self.model([x for x in frames.detach().numpy()], size=640)
+        for frames_batch in ds:
+            detections = self.model(frames_batch, size=640)
             dfs += detections.pandas().xywh
 
         kp = skeleton['keypoint']
@@ -76,6 +76,7 @@ class ChildDetector:
                     skeleton['child_detected'][i] = 1
                     (x,y), (w,h) = bounding_box(kp[cid, i].T, kps[cid, i].T)
                     child_box = {'xcenter': x, 'ycenter': y, 'width': w * 1.1, 'height': h * 1.3, 'confidence': 0, 'class': 1, 'name': 'child'}
+        del ds
         return skeleton
 
     def filter(self, skeleton):
@@ -118,18 +119,25 @@ class ChildDetector:
 
 if __name__ == '__main__':
     random.seed(0)
-    n = 20
-    skeletons_dir = r'S:\Users\TalBarami\lancet_submission_data\repetitions\child_detect=True\skeletons\train'
+    n = 40
+    skeletons_dir = r'S:\Users\TalBarami\lancet_submission_data\repetitions\train\skeletons\raw'
     videos_dir = r'S:\Users\TalBarami\lancet_submission_data\repetitions\train\segmented_videos'
     out_dir = r'S:\Users\TalBarami\lancet_submission_data\repetitions\child_detect_samples'
-    skeletons = list(os.listdir(skeletons_dir))
-    skeletons = random.sample(skeletons, n)
+    # skeletons = list(os.listdir(skeletons_dir))
+    # skeletons = random.sample(skeletons, n)
+    skeletons = ['1021229647_PLS_Clinical_180620_1159_2_Toe walking_562_587.pkl',
+                 '1021265038_ADOS_Clinical_250620_1421_1_Jumping in place_1138_1145.pkl',
+                 '1009730632_PLS_Clinical_210218_1109_2_Other_999_1014.pkl',
+                 '1009730632_PLS_Clinical_210218_1109_1_Tapping_709_719.pkl',
+                 ]
     videos = [v for v in os.listdir(videos_dir) if f'{osp.splitext(v)[0]}.pkl' in skeletons]
     videos.sort()
     skeletons.sort()
     vis = MMPoseVisualizer(COCO_LAYOUT)
     cd = ChildDetector()
-
+    cd.detect(r'\\ac-s1\Data\Autism Center\Users\TalBarami\JORDI_50_vids_benchmark\videos\1007196724\1007196724_ADOS_Clinical_190917_0000_2.MP4',
+              read_pkl(r'//ac-s1/Data/Autism Center/Users/TalBarami/JORDI_50_vids_benchmark/JORDIv3_detections/1007196724_ADOS_Clinical_190917_0000_2/1007196724_ADOS_Clinical_190917_0000_2_raw.pkl'))
+    exit()
     for video, skeleton in zip(videos, skeletons):
         skeleton = read_pkl(osp.join(skeletons_dir, skeleton))
         skeleton = cd.detect(osp.join(videos_dir, video), skeleton)
