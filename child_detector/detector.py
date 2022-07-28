@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import shlex
@@ -40,6 +41,8 @@ class ChildDetector:
     def detect(self, video_path, skeleton):
         skeleton = skeleton.copy()
         ds = ChildDetectionDataset(video_path, self.batch_size)
+        if len(ds) != skeleton['keypoint'].shape[1]:
+            logging.error(f'Shape mismatch for {video_path}: {len(ds)} video frames but {skeleton["keypoint"].shape[1]} skeleton frames')
         skeleton['child_ids'] = np.ones(len(ds)) * -1
         skeleton['child_detected'] = np.zeros(len(ds))
         dfs = []
