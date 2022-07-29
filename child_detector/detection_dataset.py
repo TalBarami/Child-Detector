@@ -16,6 +16,8 @@ class ChildDetectionDataset(Dataset):
         return self
 
     def __next__(self):
+        if self.num_frames <= self.i:
+            raise StopIteration
         batch = []
         for _ in range(self.batch_size):
             ret, frame = self.cap.read()
@@ -23,10 +25,9 @@ class ChildDetectionDataset(Dataset):
                 batch.append(frame)
                 self.i += 1
             else:
-                if self.num_frames <= self.i:
-                    raise StopIteration
-                else:
-                    raise IndexError(f"Unable to read frame.")
+                break
+            # else:
+            #     raise IndexError(f"Unable to read frame.")
         return batch
 
     def __del__(self):
