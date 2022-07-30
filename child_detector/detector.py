@@ -30,9 +30,15 @@ class ChildDetector:
         self.batch_size = batch_size
         self.device = self.model.model.device
         self.min_iou = min_iou
+        self.conf_threshold = 0
+        self.grace_distance = 20
+        self.similarity_threshold = 0.85
+
+    def get_box(self, row):
+        return np.array([row['xcenter'], row['ycenter'], row['width'], row['height']])
 
     def find_nearest(self, box, kp, score):
-        cb = (box['xcenter'], box['ycenter']), (box['width'] / 1.1, box['height'] / 1.3)
+        cb = self.get_box(box)
         M = kp.shape[0]
         boxes = [bounding_box(kp[i].T, score[i]) for i in range(M)]
         iou = [get_iou(cb, b) for b in boxes]
@@ -49,37 +55,42 @@ class ChildDetector:
         return dfs
 
     def _straight_match(self, detections, kp, kps, cids, detected, boxes):
+        child_box = None
         for i, df in enumerate(detections):
             children = df[df['class'] == 1]
             if children.shape[0] == 0:
                 continue
-            child_box = children.loc[children['confidence'].idxmax()]
+            elif children.shape[0] > 1 and child_box is not None:
+                candidates = [(i, self.get_box(b)) for i, b in children.iterrows()]
+                ious = [get_iou(self.get_box(child_box), b) for _, b in candidates]
+                child_box = children.loc[candidates[np.argmax(ious)][0]]
+                if not np.equal(child_box.values, children.loc[children['confidence'].idxmax()].values).all():
+                    print('Different child box was chosen!')
+            else:
+                child_box = children.loc[children['confidence'].idxmax()]
+            boxes[i] = self.get_box(child_box)
             cid, iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :])
             if iou < self.min_iou:
                 continue
-            cids[i] = cid
-            boxes[i] = np.array([child_box['xcenter'], child_box['ycenter'], child_box['width'], child_box['height']])
             detected[i] = child_box['confidence']
-            if children.shape[0] > 1:  # TODO: In this case, maybe think not only about max score, but also about previous / futural detections?
-                print('Multiple Children???')
+            cids[i] = cid
 
     def _interpolate(self, detections, kp, kps, cids, detected, boxes):
         env = [{} for _ in detected]
-        c, d = 0, 10
         def scan(lst, key, reverse):
             tmp = None
             for i, child_conf in reversed(list(enumerate(lst))) if reverse else enumerate(lst):
-                if child_conf > c:
+                if child_conf > self.conf_threshold:
                     tmp = i
                 env[i][key] = tmp
         scan(detected, 'prev', reverse=False)
         scan(detected, 'next', reverse=True)
 
         for i, df in enumerate(detections):
-            if detected[i] > c:
+            if detected[i] > self.conf_threshold:
                 continue
             prev, next = env[i]['prev'], env[i]['next']
-            if not (prev and np.abs(prev - i) < d) or (next and np.abs(next - i) < d):
+            if not ((prev and np.abs(prev - i) < self.grace_distance) or (next and np.abs(next - i) < self.grace_distance)):
                 continue
             j = prev if next is None else next if prev is None else prev if abs(i-prev) >= abs(next-i) else next
             _df = detections[j]
@@ -89,16 +100,16 @@ class ChildDetector:
             if candidate_iou < self.min_iou:
                 continue
             adults = df[df['class'] == 0]
-            adults_matches = [self.find_nearest(adult_box, kp[:, i, :, :], kps[:, i, :]) for _, adult_box in adults.iterrows()]
-            conflicts = [(a, iou) for a, iou in adults_matches if a == candidate and iou > self.min_iou]
-            if len(conflicts) > 1:
-                print('MULTIPLE CONFLICTS#!@$!@')
-            # if any(conflicts):
-            #     _, rival_iou = conflicts[0] #  TODO: what if rival is actually mis-annotated child? What about multiple rivals?
-            #     if rival_iou > candidate_iou:
-            #         continue
+            adults_matches = [(idx, self.find_nearest(adult_box, kp[:, i, :, :], kps[:, i, :])) for idx, adult_box in adults.iterrows()]
+            conflicts = [(idx, a, iou) for idx, (a, iou) in adults_matches if a == candidate and iou > self.min_iou]
+            if any(rival_iou > candidate_iou and \
+                   not get_iou(self.get_box(child_box), self.get_box(adults.loc[idx])) > self.similarity_threshold for idx, _, rival_iou in conflicts):
+                continue
             cids[i] = candidate
-            boxes[i] = np.array([child_box['xcenter'], child_box['ycenter'], child_box['width'], child_box['height']])
+            boxes[i] = self.get_box(child_box)
+
+    def _clean(self, detections, kp, kps, cids, detected, boxes):
+        pass
 
     def match_skeleton(self, skeleton, detections):
         skeleton = skeleton.copy()
@@ -112,34 +123,7 @@ class ChildDetector:
         kps = skeleton['keypoint_score']
         self._straight_match(detections, kp, kps, cids, detected, boxes)
         self._interpolate(detections, kp, kps, cids, detected, boxes) # TODO: Third pass, clear bounding boxes that are alone in a window of size d?
-        # reverse_pass, child_box = False, None
-        # first_box, first_detection = None, None
-        # for i, df in enumerate(detections):
-        #     children = df[df['class'] == 1]
-        #     if children.shape[0] == 1:
-        #         child_box = children.iloc[0]
-        #         if first_detection is None:
-        #             first_detection, first_box = i, child_box
-        #         cid = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :])
-        #         skeleton['child_ids'][i] = cid
-        #         skeleton['child_detected'][i] = 1
-        #     elif child_box is not None:
-        #         cid, iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :], return_iou=True)
-        #         if iou >= self.min_iou:
-        #             skeleton['child_ids'][i] = cid
-        #             skeleton['child_detected'][i] = 1
-        #     else:
-        #         reverse_pass = True
-        # if reverse_pass and first_detection is not None:
-        #     child_box = first_box
-        #     for i in range(first_detection - 1, -1, -1):
-        #         cid, iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :], return_iou=True)
-        #         if iou >= self.min_iou:
-        #             skeleton['child_ids'][i] = cid
-        #             skeleton['child_detected'][i] = 1
-        #             (x, y), (w, h) = bounding_box(kp[cid, i].T, kps[cid, i].T)
-        #             child_box = {'xcenter': x, 'ycenter': y, 'width': w * 1.1, 'height': h * 1.3, 'confidence': 0, 'class': 1, 'name': 'child'}
-        # del ds
+        self._clean(detections, kp, kps, cids, detected, boxes)
         return skeleton
 
     def filter(self, skeleton):
@@ -160,10 +144,12 @@ if __name__ == '__main__':
     cd = ChildDetector()
     skeletons = list(os.listdir(skeletons_dir))
     skeletons = random.sample(skeletons, n)
+    # skeletons = ['675873676_PLS_Clinical_130920_1041_2_Tapping_718_724.pkl']
     videos = [v for v in os.listdir(videos_dir) if f'{osp.splitext(v)[0]}.pkl' in skeletons]
     videos.sort()
     skeletons.sort()
     for video, skeleton_name in zip(videos, skeletons):
+        print(f'Executing: {video}')
         detections = cd.detect(osp.join(videos_dir, video))
         skeleton = read_pkl(osp.join(skeletons_dir, skeleton_name))
         if len(detections) != skeleton['keypoint'].shape[1]:
@@ -175,6 +161,7 @@ if __name__ == '__main__':
     jordi_root = r'Z:\Users\TalBarami\JORDI_50_vids_benchmark\JORDIv3_detections'
     videos = ['664015048_ADOS_Clinical_011017_0000_3.mp4', '663981493_ADOS_Clinical_020216_0000_3.mp4', '1021400350_ADOS_Clinical_060617_0000_2.mp4']
     for v in videos:
+        print(f'Executing: {v}')
         cid = v.split('_')[0]
         name, ext = osp.splitext(v)
         vpath = osp.join(vids_root, cid, v)
