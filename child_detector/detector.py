@@ -25,14 +25,14 @@ from pathlib import Path
 
 MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'model.pt')
 class ChildDetector:
-    def __init__(self, min_iou=0.01, model_path=MODEL_PATH, batch_size=128):
+    def __init__(self, iou_threshold=0.01, conf_threshold=0.1, smiliarity_threshold=0.85, grace_distance=20, model_path=MODEL_PATH, batch_size=128):
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
         self.batch_size = batch_size
         self.device = self.model.model.device
-        self.min_iou = min_iou
-        self.conf_threshold = 0
-        self.grace_distance = 20
-        self.similarity_threshold = 0.85
+        self.iou_threshold = iou_threshold
+        self.conf_threshold = conf_threshold
+        self.similarity_threshold = smiliarity_threshold
+        self.grace_distance = grace_distance
 
     def get_box(self, row):
         return np.array([row['xcenter'], row['ycenter'], row['width'], row['height']])
@@ -70,7 +70,7 @@ class ChildDetector:
                 child_box = children.loc[children['confidence'].idxmax()]
             boxes[i] = self.get_box(child_box)
             cid, iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :])
-            if iou < self.min_iou:
+            if iou < self.iou_threshold:
                 continue
             detected[i] = child_box['confidence']
             cids[i] = cid
@@ -97,11 +97,11 @@ class ChildDetector:
             children = _df[_df['class'] == 1]
             child_box = children.loc[children['confidence'].idxmax()]
             candidate, candidate_iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :])
-            if candidate_iou < self.min_iou:
+            if candidate_iou < self.iou_threshold:
                 continue
             adults = df[df['class'] == 0]
             adults_matches = [(idx, self.find_nearest(adult_box, kp[:, i, :, :], kps[:, i, :])) for idx, adult_box in adults.iterrows()]
-            conflicts = [(idx, a, iou) for idx, (a, iou) in adults_matches if a == candidate and iou > self.min_iou]
+            conflicts = [(idx, a, iou) for idx, (a, iou) in adults_matches if a == candidate and iou > self.iou_threshold]
             if any(rival_iou > candidate_iou and \
                    not get_iou(self.get_box(child_box), self.get_box(adults.loc[idx])) > self.similarity_threshold for idx, _, rival_iou in conflicts):
                 continue
