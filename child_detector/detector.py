@@ -113,14 +113,27 @@ class ChildDetector:
 
     def match_skeleton(self, skeleton, detections):
         skeleton = skeleton.copy()
-        skeleton['child_ids'] = np.ones(skeleton['keypoint'].shape[1]) * -1
-        skeleton['child_detected'] = np.zeros(skeleton['keypoint'].shape[1])
-        skeleton['child_bbox'] = np.zeros((skeleton['keypoint'].shape[1], 4))
+        kp = skeleton['keypoint']
+        kps = skeleton['keypoint_score']
+        adj = 0
+        _, T, _, _ = kp.shape
+        if len(detections) != T:
+            if len(detections) > T:
+                adj = len(detections) - T
+                logging.info(f'Fixing adjustment for: {adj}')
+                skeleton['adjustment'] = adj
+                detections = detections[adj:]
+            else:
+                raise IndexError(f'Length mismatch: skeleton({T}) > video({len(detections)})')
+
+        skeleton['adjustment'] = 0
+        skeleton['child_ids'] = np.ones(T) * -1
+        skeleton['child_detected'] = np.zeros(T)
+        skeleton['child_bbox'] = np.zeros((T, 4))
+
         cids = skeleton['child_ids']
         detected = skeleton['child_detected']
         boxes = skeleton['child_bbox']
-        kp = skeleton['keypoint']
-        kps = skeleton['keypoint_score']
         self._straight_match(detections, kp, kps, cids, detected, boxes)
         self._interpolate(detections, kp, kps, cids, detected, boxes) # TODO: Third pass, clear bounding boxes that are alone in a window of size d?
         self._clean(detections, kp, kps, cids, detected, boxes)
