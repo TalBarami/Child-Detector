@@ -26,7 +26,9 @@ from pathlib import Path
 MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'model.pt')
 class ChildDetector:
     def __init__(self, iou_threshold=0.01, conf_threshold=0.1, smiliarity_threshold=0.85, grace_distance=20, model_path=MODEL_PATH, batch_size=128):
+        handlers = list(logging.getLogger().handlers)
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
+        logging.getLogger().handlers = handlers
         self.batch_size = batch_size
         self.device = self.model.model.device
         self.iou_threshold = iou_threshold
@@ -126,7 +128,7 @@ class ChildDetector:
         cids = skeleton['child_ids']
         detected = skeleton['child_detected']
         boxes = skeleton['child_bbox']
-        adj = skeleton['adjust']
+        adj = skeleton['adjust'] if 'adjust' in skeleton.keys() else 0
         self._straight_match(detections[adj:], kp, kps, cids, detected, boxes)
         self._interpolate(detections[adj:], kp, kps, cids, detected, boxes) # TODO: Third pass, clear bounding boxes that are alone in a window of size d?
         self._clean(detections[adj:], kp, kps, cids, detected, boxes)
