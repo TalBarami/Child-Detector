@@ -143,42 +143,45 @@ class ChildDetector:
         return out
 
 if __name__ == '__main__':
-    random.seed(0)
-    n = 20
-    skeletons_dir = r'D:\datasets\lancet_submission_data\skeletons\raw'
-    videos_dir = r'D:\datasets\lancet_submission_data\segmented_videos'
-    out_dir = r'C:\Users\owner\Downloads\child_detect_tests'
+    # random.seed(0)
+    n = 30
+    submission_root = r'D:\datasets\lancet_submission_data'
+    out_root = r'C:\Users\owner\Downloads\child_detect_tests'
     vis = MMPoseVisualizer(COCO_LAYOUT)
-    cd = ChildDetector()
-    skeletons = list(os.listdir(skeletons_dir))
-    skeletons = random.sample(skeletons, n)
-    # skeletons = ['675873676_PLS_Clinical_130920_1041_2_Tapping_718_724.pkl']
-    videos = [v for v in os.listdir(videos_dir) if f'{osp.splitext(v)[0]}.pkl' in skeletons]
-    videos.sort()
-    skeletons.sort()
-    for video, skeleton_name in zip(videos, skeletons):
-        print(f'Executing: {video}')
-        detections = cd.detect(osp.join(videos_dir, video))
-        skeleton = read_pkl(osp.join(skeletons_dir, skeleton_name))
-        if len(detections) != skeleton['keypoint'].shape[1]:
-            raise IndexError(f'Frames mismatch for {video}')
-        matched_skeleton = cd.match_skeleton(skeleton, detections)
-        vis.create_video(osp.join(videos_dir, video), matched_skeleton, osp.join(out_dir, video))
+    for r in ['no_action']:
+        root = osp.join(submission_root, r)
+        skeletons_dir = osp.join(root, r'skeletons\raw')
+        videos_dir = osp.join(root, 'segmented_videos')
+        output = osp.join(out_root, r)
+        skeletons = list(os.listdir(skeletons_dir))
+        skeletons = [s for s in skeletons if not any([v.startswith(osp.splitext(s)[0]) for v in os.listdir(output)])]
+        skeletons = random.sample(skeletons, n)
+        videos = [v for v in os.listdir(videos_dir) if f'{osp.splitext(v)[0]}.pkl' in skeletons]
+        videos.sort()
+        skeletons.sort()
+        for video, skeleton_name in zip(videos, skeletons):
+            print(f'Executing: {video}')
+            # detections = cd.detect(osp.join(videos_dir, video))
+            # skeleton = read_pkl(osp.join(skeletons_dir, skeleton_name))
+            # if len(detections) != skeleton['keypoint'].shape[1]:
+            #     raise IndexError(f'Frames mismatch for {video}')
+            # matched_skeleton = cd.match_skeleton(skeleton, detections)
+            vis.create_video(osp.join(videos_dir, video), read_pkl(osp.join(skeletons_dir, skeleton_name)), osp.join(output, video))
 
-    vids_root = r'Z:\Users\TalBarami\JORDI_50_vids_benchmark\videos'
-    jordi_root = r'Z:\Users\TalBarami\JORDI_50_vids_benchmark\JORDIv3_detections'
-    videos = ['664015048_ADOS_Clinical_011017_0000_3.mp4', '663981493_ADOS_Clinical_020216_0000_3.mp4', '1021400350_ADOS_Clinical_060617_0000_2.mp4']
-    for v in videos:
-        print(f'Executing: {v}')
-        cid = v.split('_')[0]
-        name, ext = osp.splitext(v)
-        vpath = osp.join(vids_root, cid, v)
-        detections = cd.detect(vpath)
-        skeleton = read_pkl(osp.join(jordi_root, name, f'{name}_raw.pkl'))
-        if len(detections) != skeleton['keypoint'].shape[1]:
-            print(f'Frames mismatch: {len(detections)} detections for {skeleton["keypoint"].shape[1]} keypoints for {v}')
-        matched_skeleton = cd.match_skeleton(skeleton, detections)
-        vis.create_video(vpath, matched_skeleton, osp.join(out_dir, v))
+    # vids_root = r'Z:\Users\TalBarami\JORDI_50_vids_benchmark\videos'
+    # jordi_root = r'Z:\Users\TalBarami\JORDI_50_vids_benchmark\JORDIv3_detections'
+    # videos = ['664015048_ADOS_Clinical_011017_0000_3.mp4', '663981493_ADOS_Clinical_020216_0000_3.mp4', '1021400350_ADOS_Clinical_060617_0000_2.mp4']
+    # for v in videos:
+    #     print(f'Executing: {v}')
+    #     cid = v.split('_')[0]
+    #     name, ext = osp.splitext(v)
+    #     vpath = osp.join(vids_root, cid, v)
+    #     detections = cd.detect(vpath)
+    #     skeleton = read_pkl(osp.join(jordi_root, name, f'{name}_raw.pkl'))
+    #     if len(detections) != skeleton['keypoint'].shape[1]:
+    #         print(f'Frames mismatch: {len(detections)} detections for {skeleton["keypoint"].shape[1]} keypoints for {v}')
+    #     matched_skeleton = cd.match_skeleton(skeleton, detections)
+    #     vis.create_video(vpath, matched_skeleton, osp.join(out_dir, v))
 
 
 # class ChildDetector:
