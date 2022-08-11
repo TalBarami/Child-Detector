@@ -23,29 +23,17 @@ from skeleton_tools.utils.tools import read_json, get_video_properties, read_pkl
 from child_detector.detection_dataset import ChildDetectionDataset
 from pathlib import Path
 
+from facial_matcher import FaceMatcher
+from skeleton_matcher import SkeletonMatcher
+
 MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'model.pt')
 class ChildDetector:
-    def __init__(self, iou_threshold=0.01, conf_threshold=0.1, smiliarity_threshold=0.85, grace_distance=20, model_path=MODEL_PATH, batch_size=128):
+    def __init__(self, model_path=MODEL_PATH, batch_size=128):
         handlers = list(logging.getLogger().handlers)
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
         logging.getLogger().handlers = handlers
         self.batch_size = batch_size
         self.device = self.model.model.device
-        self.iou_threshold = iou_threshold
-        self.conf_threshold = conf_threshold
-        self.similarity_threshold = smiliarity_threshold
-        self.grace_distance = grace_distance
-
-    def get_box(self, row):
-        return np.array([row['xcenter'], row['ycenter'], row['width'], row['height']])
-
-    def find_nearest(self, box, kp, score):
-        cb = self.get_box(box)
-        M = kp.shape[0]
-        boxes = [bounding_box(kp[i].T, score[i]) for i in range(M)]
-        iou = [get_iou(cb, b) for b in boxes]
-        nearest = np.argmax(iou)
-        return nearest, np.max(iou)
 
     def detect(self, video_path):
         ds = ChildDetectionDataset(video_path, self.batch_size)
@@ -56,91 +44,21 @@ class ChildDetector:
         del ds
         return dfs
 
-    def _straight_match(self, detections, kp, kps, cids, detected, boxes):
-        child_box = None
-        for i, df in enumerate(detections):
-            children = df[df['class'] == 1]
-            if children.shape[0] == 0:
-                continue
-            elif children.shape[0] > 1 and child_box is not None:
-                candidates = [(i, self.get_box(b)) for i, b in children.iterrows()]
-                ious = [get_iou(self.get_box(child_box), b) for _, b in candidates]
-                child_box = children.loc[candidates[np.argmax(ious)][0]]
-                if not np.equal(child_box.values, children.loc[children['confidence'].idxmax()].values).all():
-                    print('Different child box was chosen!')
-            else:
-                child_box = children.loc[children['confidence'].idxmax()]
-            boxes[i] = self.get_box(child_box)
-            cid, iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :])
-            if iou < self.iou_threshold:
-                continue
-            detected[i] = child_box['confidence']
-            cids[i] = cid
+    # def filter(self, skeleton):
+    #     kp = skeleton['keypoint']
+    #     kps = skeleton['keypoint_score']
+    #     out = skeleton.copy()
+    #     out['keypoint'] = np.array([kp[cid, i] for i, cid in enumerate(skeleton['child_ids'])])
+    #     out['keypoint_score'] = np.array([kps[cid, i] for i, cid in enumerate(skeleton['child_ids'])])
+    #     return out
 
-    def _interpolate(self, detections, kp, kps, cids, detected, boxes):
-        env = [{} for _ in detected]
-        def scan(lst, key, reverse):
-            tmp = None
-            for i, child_conf in reversed(list(enumerate(lst))) if reverse else enumerate(lst):
-                if child_conf > self.conf_threshold:
-                    tmp = i
-                env[i][key] = tmp
-        scan(detected, 'prev', reverse=False)
-        scan(detected, 'next', reverse=True)
+    def match_skeleton(self, skeleton, detections, iou_threshold=0.01, conf_threshold=0.1, similarity_threshold=0.85, grace_distance=20):
+        m = SkeletonMatcher(iou_threshold=iou_threshold, conf_threshold=conf_threshold, similarity_threshold=similarity_threshold, grace_distance=grace_distance)
+        return m.match_skeleton(skeleton, detections)
 
-        for i, df in enumerate(detections):
-            if detected[i] > self.conf_threshold:
-                continue
-            prev, next = env[i]['prev'], env[i]['next']
-            if not ((prev and np.abs(prev - i) < self.grace_distance) or (next and np.abs(next - i) < self.grace_distance)):
-                continue
-            j = prev if next is None else next if prev is None else prev if abs(i-prev) >= abs(next-i) else next
-            _df = detections[j]
-            children = _df[_df['class'] == 1]
-            child_box = children.loc[children['confidence'].idxmax()]
-            candidate, candidate_iou = self.find_nearest(child_box, kp[:, i, :, :], kps[:, i, :])
-            if candidate_iou < self.iou_threshold:
-                continue
-            adults = df[df['class'] == 0]
-            adults_matches = [(idx, self.find_nearest(adult_box, kp[:, i, :, :], kps[:, i, :])) for idx, adult_box in adults.iterrows()]
-            conflicts = [(idx, a, iou) for idx, (a, iou) in adults_matches if a == candidate and iou > self.iou_threshold]
-            if any(rival_iou > candidate_iou and \
-                   not get_iou(self.get_box(child_box), self.get_box(adults.loc[idx])) > self.similarity_threshold for idx, _, rival_iou in conflicts):
-                continue
-            cids[i] = candidate
-            boxes[i] = self.get_box(child_box)
-
-    def _clean(self, detections, kp, kps, cids, detected, boxes):
-        pass
-
-    def match_skeleton(self, skeleton, detections):
-        skeleton = skeleton.copy()
-        kp = skeleton['keypoint']
-        kps = skeleton['keypoint_score']
-        _, T, _, _ = kp.shape
-        if len(detections) < T:
-            raise IndexError(f'Length mismatch: skeleton({T}) > video({len(detections)})')
-
-        skeleton['child_ids'] = np.ones(T) * -1
-        skeleton['child_detected'] = np.zeros(T)
-        skeleton['child_bbox'] = np.zeros((T, 4))
-
-        cids = skeleton['child_ids']
-        detected = skeleton['child_detected']
-        boxes = skeleton['child_bbox']
-        adj = skeleton['adjust'] if 'adjust' in skeleton.keys() else 0
-        self._straight_match(detections[adj:], kp, kps, cids, detected, boxes)
-        self._interpolate(detections[adj:], kp, kps, cids, detected, boxes) # TODO: Third pass, clear bounding boxes that are alone in a window of size d?
-        self._clean(detections[adj:], kp, kps, cids, detected, boxes)
-        return skeleton
-
-    def filter(self, skeleton):
-        kp = skeleton['keypoint']
-        kps = skeleton['keypoint_score']
-        out = skeleton.copy()
-        out['keypoint'] = np.array([kp[cid, i] for i, cid in enumerate(skeleton['child_ids'])])
-        out['keypoint_score'] = np.array([kps[cid, i] for i, cid in enumerate(skeleton['child_ids'])])
-        return out
+    def match_face(self, faces, detections):
+        m = FaceMatcher()
+        return m.match_faces(faces, detections)
 
 if __name__ == '__main__':
     # random.seed(0)
