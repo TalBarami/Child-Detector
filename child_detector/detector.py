@@ -1,30 +1,17 @@
 import logging
 import os
 import random
-import shlex
-import shutil
-import subprocess
-from copy import deepcopy
-from os import path
-
-import pandas as pd
-import torch
-import numpy as np
 from os import path as osp
-import cv2
-from skeleton_tools.pipe_components.openpose_initializer import OpenposeInitializer
-from torch.utils.data import DataLoader
-
-from skeleton_tools.openpose_layouts.body import BODY_25_LAYOUT, COCO_LAYOUT
-from skeleton_tools.skeleton_visualization.numpy_visualizer import MMPoseVisualizer
-from skeleton_tools.utils.skeleton_utils import bounding_box, box_distance, normalize_json, get_iou
-from skeleton_tools.utils.tools import read_json, get_video_properties, read_pkl, write_pkl, init_logger
-
-from child_detector.detection_dataset import ChildDetectionDataset
 from pathlib import Path
 
-from facial_matcher import FaceMatcher
-from skeleton_matcher import SkeletonMatcher
+import torch
+from skeleton_tools.openpose_layouts.body import COCO_LAYOUT
+from skeleton_tools.skeleton_visualization.numpy_visualizer import MMPoseVisualizer
+from skeleton_tools.utils.tools import read_pkl
+
+from child_detector.detection_dataset import ChildDetectionDataset
+from child_detector.facial_matcher import FaceMatcher
+from child_detector.skeleton_matcher import SkeletonMatcher
 
 MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'model.pt')
 class ChildDetector:

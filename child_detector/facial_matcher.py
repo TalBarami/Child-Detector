@@ -1,7 +1,7 @@
 import numpy as np
 from skeleton_tools.utils.skeleton_utils import get_iou
 
-from utils import get_box, find_nearest
+from child_detector.utils import get_box, find_nearest
 
 def get_boxes(group):
     boxes = group.facebox.values[:, :4]
@@ -31,7 +31,7 @@ class FaceMatcher:
                     print('Different child box was chosen!')
             else:
                 child_box = children.loc[children['confidence'].idxmax()]
-            group = groups['frame']
+            group = groups[frame]
             faceboxes = get_boxes(group)
             idx, iou = find_nearest(child_box, faceboxes)
             if iou < self.iou_threshold:

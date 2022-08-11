@@ -1,7 +1,7 @@
 import numpy as np
 from skeleton_tools.utils.skeleton_utils import get_iou, bounding_box
 
-from utils import get_box, find_nearest
+from child_detector.utils import get_box, find_nearest
 
 def get_boxes(kp, score):
     M = kp.shape[0]
