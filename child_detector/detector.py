@@ -56,9 +56,9 @@ class ChildDetector:
         m = SkeletonMatcher(iou_threshold=iou_threshold, conf_threshold=conf_threshold, similarity_threshold=similarity_threshold, grace_distance=grace_distance)
         return m.match_skeleton(skeleton, detections)
 
-    def match_face(self, faces, detections):
-        m = FaceMatcher()
-        return m.match_faces(faces, detections)
+    def match_face(self, faces, detections, iou_threshold=1e-5):
+        m = FaceMatcher(iou_threshold=iou_threshold)
+        return m.match_face(faces, detections)
 
 if __name__ == '__main__':
     # random.seed(0)
