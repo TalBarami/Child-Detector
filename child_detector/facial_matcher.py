@@ -19,6 +19,8 @@ class FaceMatcher:
 
         child_box = None
         for frame, df in detections:
+            if frame not in groups.keys():
+                continue
             children = df[df['class'] == 1]
             if children.shape[0] == 0:
                 continue
