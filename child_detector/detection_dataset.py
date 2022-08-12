@@ -6,7 +6,7 @@ class ChildDetectionDataset(Dataset):
         self.video_path = video_path
         self.cap = cv2.VideoCapture(self.video_path)
         self.num_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.i = 0
+        self.i = 1
         self.batch_size = batch_size
 
     def __len__(self):
@@ -26,8 +26,6 @@ class ChildDetectionDataset(Dataset):
                 self.i += 1
             else:
                 break
-            # else:
-            #     raise IndexError(f"Unable to read frame.")
         return batch
 
     def __del__(self):

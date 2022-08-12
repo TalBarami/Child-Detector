@@ -25,7 +25,6 @@ class FaceMatcher:
             if children.shape[0] == 0:
                 continue
             elif children.shape[0] > 1 and child_box is not None:
-                print('Should do something here...')
                 candidates = [(i, get_box(b)) for i, b in children.iterrows()]
                 ious = [get_iou(get_box(child_box), b) for _, b in candidates]
                 child_box = children.loc[candidates[np.argmax(ious)][0]]
