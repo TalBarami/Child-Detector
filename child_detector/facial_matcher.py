@@ -13,9 +13,8 @@ class FaceMatcher:
     def __init__(self, iou_threshold):
         self.iou_threshold = iou_threshold
 
-    def match_face(self, faces, detections):
+    def match_face(self, faces, groups, detections):
         faces['is_child'] = 0
-        groups = {i: g for i, g in faces.groupby('frame')}
 
         child_box = None
         for frame, df in detections:

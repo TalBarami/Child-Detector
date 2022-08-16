@@ -16,7 +16,7 @@ class SkeletonMatcher:
 
     def _straight_match(self, detections, kp, kps, cids, detected, boxes):
         child_box = None
-        for i, df in enumerate(detections):
+        for i, df in detections:
             children = df[df['class'] == 1]
             if children.shape[0] == 0:
                 continue
@@ -49,7 +49,7 @@ class SkeletonMatcher:
         scan(detected, 'prev', reverse=False)
         scan(detected, 'next', reverse=True)
 
-        for i, df in enumerate(detections):
+        for i, df in detections:
             if detected[i] > self.conf_threshold:
                 continue
             prev, next = env[i]['prev'], env[i]['next']
@@ -93,6 +93,6 @@ class SkeletonMatcher:
         boxes = skeleton['child_bbox']
         adj = skeleton['adjust'] if 'adjust' in skeleton.keys() else 0
         self._straight_match(detections[adj:], kp, kps, cids, detected, boxes)
-        self._interpolate(detections[adj:], kp, kps, cids, detected, boxes)  # TODO: Third pass, clear bounding boxes that are alone in a window of size d?
+        self._interpolate(detections[adj:], kp, kps, cids, detected, boxes)
         self._clean(detections[adj:], kp, kps, cids, detected, boxes)
         return skeleton

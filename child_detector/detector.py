@@ -29,7 +29,7 @@ class ChildDetector:
             detections = self.model(frames_batch, size=640)
             dfs += detections.pandas().xywh
         del ds
-        return dfs
+        return [(i, df) for i, df in enumerate(dfs)]
 
     # def filter(self, skeleton):
     #     kp = skeleton['keypoint']
@@ -43,9 +43,9 @@ class ChildDetector:
         m = SkeletonMatcher(iou_threshold=iou_threshold, conf_threshold=conf_threshold, similarity_threshold=similarity_threshold, grace_distance=grace_distance)
         return m.match_skeleton(skeleton, detections)
 
-    def match_face(self, faces, detections, iou_threshold=1e-5):
+    def match_face(self, faces, groups, detections, iou_threshold=1e-5):
         m = FaceMatcher(iou_threshold=iou_threshold)
-        return m.match_face(faces, detections)
+        return m.match_face(faces, groups, detections)
 
 if __name__ == '__main__':
     # random.seed(0)
