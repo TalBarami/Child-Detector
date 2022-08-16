@@ -16,7 +16,7 @@ class SkeletonMatcher:
 
     def _straight_match(self, detections, kp, kps, cids, detected, boxes):
         child_box = None
-        for i, df in detections:
+        for i, df in enumerate(detections):
             children = df[df['class'] == 1]
             if children.shape[0] == 0:
                 continue
@@ -49,7 +49,7 @@ class SkeletonMatcher:
         scan(detected, 'prev', reverse=False)
         scan(detected, 'next', reverse=True)
 
-        for i, df in detections:
+        for i, df in enumerate(detections):
             if detected[i] > self.conf_threshold:
                 continue
             prev, next = env[i]['prev'], env[i]['next']
@@ -91,8 +91,10 @@ class SkeletonMatcher:
         cids = skeleton['child_ids']
         detected = skeleton['child_detected']
         boxes = skeleton['child_bbox']
-        adj = skeleton['adjust'] if 'adjust' in skeleton.keys() else 0
-        self._straight_match(detections[adj:], kp, kps, cids, detected, boxes)
-        self._interpolate(detections[adj:], kp, kps, cids, detected, boxes)
-        self._clean(detections[adj:], kp, kps, cids, detected, boxes)
+        adj = len(detections) - T
+        _, detections = list(zip(*detections[:adj]))
+
+        self._straight_match(detections, kp, kps, cids, detected, boxes)
+        self._interpolate(detections, kp, kps, cids, detected, boxes)
+        self._clean(detections, kp, kps, cids, detected, boxes)
         return skeleton
