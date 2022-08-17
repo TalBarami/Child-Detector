@@ -92,7 +92,7 @@ class SkeletonMatcher:
         detected = skeleton['child_detected']
         boxes = skeleton['child_bbox']
         adj = len(detections) - T
-        _, detections = list(zip(*detections[:adj]))
+        _, detections = list(zip(*detections[:T]))
 
         self._straight_match(detections, kp, kps, cids, detected, boxes)
         self._interpolate(detections, kp, kps, cids, detected, boxes)
