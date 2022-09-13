@@ -1,4 +1,6 @@
 import numpy as np
+from tqdm import tqdm
+
 from skeleton_tools.utils.skeleton_utils import get_iou
 
 from child_detector.utils import get_box, find_nearest
@@ -17,7 +19,7 @@ class FaceMatcher:
         faces['is_child'] = 0
 
         child_box = None
-        for frame, df in detections:
+        for frame, df in tqdm(detections, desc='Facial Matcher'):
             if frame not in groups.keys():
                 continue
             children = df[df['class'] == 1]

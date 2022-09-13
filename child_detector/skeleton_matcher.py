@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 from skeleton_tools.utils.skeleton_utils import get_iou, bounding_box
 
 from child_detector.utils import get_box, find_nearest
@@ -16,7 +17,7 @@ class SkeletonMatcher:
 
     def _straight_match(self, detections, kp, kps, cids, detected, boxes):
         child_box = None
-        for i, df in enumerate(detections):
+        for i, df in tqdm(enumerate(detections), desc='Skeleton Matcher'):
             children = df[df['class'] == 1]
             if children.shape[0] == 0:
                 continue
@@ -49,7 +50,7 @@ class SkeletonMatcher:
         scan(detected, 'prev', reverse=False)
         scan(detected, 'next', reverse=True)
 
-        for i, df in enumerate(detections):
+        for i, df in tqdm(enumerate(detections), desc='Interpolate'):
             if detected[i] > self.conf_threshold:
                 continue
             prev, next = env[i]['prev'], env[i]['next']
