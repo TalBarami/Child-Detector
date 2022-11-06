@@ -25,8 +25,8 @@ class SkeletonMatcher:
                 candidates = [(i, get_box(b)) for i, b in children.iterrows()]
                 ious = [get_iou(get_box(child_box), b) for _, b in candidates]
                 child_box = children.loc[candidates[np.argmax(ious)][0]]
-                if not np.equal(child_box.values, children.loc[children['confidence'].idxmax()].values).all():
-                    print('Different child box was chosen!')
+                # if not np.equal(child_box.values, children.loc[children['confidence'].idxmax()].values).all():
+                #     print('Different child box was chosen!')
             else:
                 child_box = children.loc[children['confidence'].idxmax()]
             boxes[i] = get_box(child_box)
