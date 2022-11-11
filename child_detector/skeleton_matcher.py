@@ -9,11 +9,12 @@ def get_boxes(kp, score):
     return [bounding_box(kp[i].T, score[i]) for i in range(M)]
 from skeleton_tools.skeleton_visualization.draw_utils import draw_bbox
 class SkeletonMatcher:
-    def __init__(self, iou_threshold, conf_threshold, grace_distance, similarity_threshold):
+    def __init__(self, iou_threshold, conf_threshold, grace_distance, similarity_threshold, tolerance):
         self.iou_threshold = iou_threshold
         self.conf_threshold = conf_threshold
         self.grace_distance = grace_distance
         self.similarity_threshold = similarity_threshold
+        self.tolerance = tolerance
 
     def _straight_match(self, detections, kp, kps, cids, detected, boxes):
         child_box = None
@@ -79,8 +80,12 @@ class SkeletonMatcher:
         kps = skeleton['keypoint_score']
         _, T, _, _ = kp.shape
         adj = len(detections) - T
-        if adj < 0:
-            raise IndexError(f'Length mismatch: skeleton({T}) > video({len(detections)})')
+        if np.abs(adj) > self.tolerance:
+            raise IndexError(f'Length mismatch: skeleton({T}) - video({len(detections)})')
+        if adj <= 0:
+            detections = detections + [detections[-1]] * np.abs(adj)
+        else:
+            detections = detections[adj:]
 
         skeleton['child_ids'] = np.ones(T) * -1
         skeleton['child_detected'] = np.zeros(T)
@@ -89,7 +94,7 @@ class SkeletonMatcher:
         cids = skeleton['child_ids']
         detected = skeleton['child_detected']
         boxes = skeleton['child_bbox']
-        _, detections = list(zip(*detections[adj:]))
+        _, detections = list(zip(*detections))
         self._straight_match(detections, kp, kps, cids, detected, boxes)
         self._interpolate(detections, kp, kps, cids, detected, boxes)
         return skeleton
