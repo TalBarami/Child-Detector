@@ -15,12 +15,14 @@ from child_detector.skeleton_matcher import SkeletonMatcher
 
 MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'model.pt')
 class ChildDetector:
-    def __init__(self, model_path=MODEL_PATH, batch_size=128):
+    def __init__(self, model_path=MODEL_PATH, batch_size=128, gpu_id=None):
         handlers = list(logging.getLogger().handlers)
         self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
+        self.gpu_id = gpu_id
+        if self.gpu_id is not None:
+            self.model = self.model.to(self.gpu_id)
         logging.getLogger().handlers = handlers
         self.batch_size = batch_size
-        self.device = self.model.model.device
 
     def detect(self, video_path):
         ds = ChildDetectionDataset(video_path, self.batch_size)
