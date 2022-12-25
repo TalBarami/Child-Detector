@@ -6,7 +6,6 @@ from pathlib import Path
 
 import torch
 from skeleton_tools.openpose_layouts.body import COCO_LAYOUT
-from skeleton_tools.skeleton_visualization.numpy_visualizer import MMPoseVisualizer
 from skeleton_tools.utils.tools import read_pkl
 
 from child_detector.detection_dataset import ChildDetectionDataset
@@ -50,6 +49,7 @@ class ChildDetector:
         return m.match_face(faces, groups, detections)
 
 if __name__ == '__main__':
+    from skeleton_tools.skeleton_visualization.numpy_visualizer import MMPoseVisualizer
     # random.seed(0)
     n = 30
     submission_root = r'D:\datasets\lancet_submission_data'
