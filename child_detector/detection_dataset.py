@@ -25,7 +25,7 @@ class ChildDetectionDataset(Dataset):
                 batch.append(frame)
                 self.i += 1
             else:
-                break
+                raise StopIteration
         return batch
 
     def __del__(self):
