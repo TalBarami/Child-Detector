@@ -24,8 +24,10 @@ class ChildDetectionDataset(Dataset):
             if ret:
                 batch.append(frame)
                 self.i += 1
-            else:
+            elif len(batch) == 0:
                 raise StopIteration
+            else:
+                break
         return batch
 
     def __del__(self):
