@@ -7,7 +7,7 @@ from child_detector.utils import get_box, find_nearest
 def get_boxes(kp, score):
     M = kp.shape[0]
     return [bounding_box(kp[i].T, score[i]) for i in range(M)]
-from skeleton_tools.skeleton_visualization.draw_utils import draw_bbox
+
 class SkeletonMatcher:
     def __init__(self, iou_threshold, conf_threshold, grace_distance, similarity_threshold, tolerance):
         self.iou_threshold = iou_threshold
