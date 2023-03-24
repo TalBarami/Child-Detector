@@ -6,7 +6,7 @@ from child_detector.utils import get_box, find_nearest
 
 def get_boxes(kp, score):
     M = kp.shape[0]
-    return [bounding_box(kp[i].T, score[i]) for i in range(M)]
+    return [bounding_box(kp[i].T, score[i]).reshape(-1) for i in range(M)]
 
 class SkeletonMatcher:
     def __init__(self, iou_threshold, conf_threshold, grace_distance, similarity_threshold, tolerance):
