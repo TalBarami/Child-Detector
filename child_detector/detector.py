@@ -40,7 +40,7 @@ class ChildDetector:
     #     out['keypoint_score'] = np.array([kps[cid, i] for i, cid in enumerate(skeleton['child_ids'])])
     #     return out
 
-    def match_skeleton(self, skeleton, detections, iou_threshold=0.01, conf_threshold=0.1, similarity_threshold=0.85, grace_distance=20, tolerance=10):
+    def match_skeleton(self, skeleton, detections, iou_threshold=0.01, conf_threshold=0.1, similarity_threshold=0.85, grace_distance=20, tolerance=100):
         m = SkeletonMatcher(iou_threshold=iou_threshold, conf_threshold=conf_threshold, similarity_threshold=similarity_threshold, grace_distance=grace_distance, tolerance=tolerance)
         return m.match_skeleton(skeleton, detections)
 
