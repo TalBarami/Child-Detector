@@ -5,25 +5,25 @@ class ChildDetectionDataset(Dataset):
     def __init__(self, video_path, batch_size):
         self.video_path = video_path
         self.cap = cv2.VideoCapture(self.video_path)
-        self.num_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.i = 1
+        # self.num_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        # self.i = 1
         self.batch_size = batch_size
 
-    def __len__(self):
-        return self.num_frames
+    # def __len__(self):
+    #     return self.num_frames
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.num_frames <= self.i:
-            raise StopIteration
+        # if self.num_frames <= self.i:
+        #     raise StopIteration
         batch = []
         for _ in range(self.batch_size):
             ret, frame = self.cap.read()
             if ret:
                 batch.append(frame)
-                self.i += 1
+                # self.i += 1
             elif len(batch) == 0:
                 raise StopIteration
             else:

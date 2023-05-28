@@ -82,10 +82,10 @@ class SkeletonMatcher:
         adj = len(detections) - T
         if np.abs(adj) > self.tolerance:
             raise IndexError(f'Length mismatch: skeleton({T}) - video({len(detections)})')
-        if adj <= 0:
-            detections = detections + [detections[-1]] * np.abs(adj)
-        else:
-            detections = detections[adj:]
+        # if adj <= 0:
+        #     detections = detections + [detections[-1]] * np.abs(adj)
+        # else:
+        #     detections = detections[adj:]
 
         skeleton['child_ids'] = np.ones(T) * -1
         skeleton['child_detected'] = np.zeros(T)
