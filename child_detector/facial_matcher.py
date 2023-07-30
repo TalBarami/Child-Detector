@@ -6,7 +6,7 @@ from skeleton_tools.utils.skeleton_utils import get_iou
 from child_detector.utils import get_box, find_nearest
 
 def get_boxes(group):
-    boxes = group.facebox.values[:, :4]
+    boxes = group.faceboxes.values[:, :4]
     boxes[:, 0] += boxes[:, 2] // 2
     boxes[:, 1] += boxes[:, 3] // 2
     return boxes[:, :4]
