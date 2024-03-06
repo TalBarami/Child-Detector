@@ -18,7 +18,7 @@ class SkeletonMatcher:
 
     def _straight_match(self, detections, kp, kps, cids, detected, boxes):
         child_box = None
-        for i, df in tqdm(enumerate(detections), desc='Skeleton Matcher'):
+        for i, df in tqdm(enumerate(detections), desc='Skeleton Matcher', total=len(detections)):
             children = df[df['class'] == 1]
             if children.shape[0] == 0:
                 continue
@@ -51,7 +51,9 @@ class SkeletonMatcher:
         scan(detected, 'prev', reverse=False)
         scan(detected, 'next', reverse=True)
 
-        for i, df in tqdm(enumerate(detections), desc='Interpolate'):
+        for i, df in tqdm(enumerate(detections), desc='Interpolate', total=len(detections)):
+            if i >= len(detected):
+                break
             if detected[i] > self.conf_threshold:
                 continue
             prev, next = env[i]['prev'], env[i]['next']
