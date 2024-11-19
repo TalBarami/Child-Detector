@@ -17,7 +17,7 @@ from taltools.io.files import read_pkl, write_pkl
 from child_detector.confidence_overrider import override_conf
 
 
-MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'models', 'child_detector.pt')
+MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'models', 'child_detector_241115.pt')
 
 class ChildDetector:
     def __init__(self, model_path=MODEL_PATH, confidence_threshold=0.25, duplication_threshold=0.9, batch_size=128, device=None):
