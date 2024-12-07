@@ -7,6 +7,7 @@ from os import path as osp
 from taltools.cv.bounding_boxes import xywh2xyxy, iou
 from taltools.io.files import read_pkl
 
+from child_detector.detection_data import DetectionsData
 from child_detector.child_detector import ChildDetector
 
 class ChildMatcher(ABC):
@@ -32,7 +33,7 @@ class ChildMatcher(ABC):
 
     def _match(self, pboxes, detections):
         if type(detections) is str:
-            detections = pd.read_csv(detections)
+            detections = DetectionsData.load(detections)
         detections['class'] = (detections['confidence'] > self.confidence_threshold).astype(int)
         T1, T2 = pboxes.shape[0], detections['frame'].max()+1
         if np.abs(T1-T2) > self.tolerance:
@@ -71,10 +72,9 @@ class SkeletonMatcher(ChildMatcher):
 
     def match(self, skeleton, detections):
         if type(skeleton) is str:
-            skeleton = read_pkl(skeleton)
-        sboxes = skeleton['bounding_box']
-        skeleton['child_id'] = self._match(sboxes, detections)
-        return skeleton
+            skeleton = SkeletonData.load(skeleton)
+        sboxes = skeleton.bounding_boxes()
+        cids = self._match(sboxes, detections)
 
 class FacialMatcher(ChildMatcher):
     def __init__(self, confidence_threshold, iou_threshold, interpolation_threshold, tolerance):

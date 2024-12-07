@@ -15,17 +15,17 @@ from taltools.cv.iterable_video_dataset import IterableVideoDataset
 from taltools.io.files import read_pkl, write_pkl
 
 from child_detector.confidence_overrider import override_conf
+from child_detector.detection_data import DetectionsData
 
 
 MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'models', 'child_detector_241115.pt')
 
 class ChildDetector:
-    def __init__(self, model_path=MODEL_PATH, confidence_threshold=0.25, duplication_threshold=0.9, batch_size=128, device=None):
+    def __init__(self, model_path=MODEL_PATH, duplication_threshold=0.9, batch_size=128, device=None):
         override_conf()
         handlers = list(logging.getLogger().handlers)
         self.device = torch.device(device) if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = YOLO(model_path).to(self.device)
-        # self.confidence_threshold = confidence_threshold
         self.duplication_threshold = duplication_threshold
         self.batch_size = batch_size
         logging.getLogger().handlers = handlers
@@ -40,9 +40,6 @@ class ChildDetector:
                                                  x.boxes.data[:, -2].unsqueeze(1),
                                                  x.boxes.data[:, -1].unsqueeze(1),
                                                  x.boxes.xywh), dim=1).detach().cpu().numpy(), columns=['_class', 'confidence_adult', 'confidence_child', 'x', 'y', 'w', 'h']) for x in detections]
-            # out += [pd.DataFrame(data=torch.cat(( x.boxes.cls.unsqueeze(1),
-            #                                       x.boxes.conf.unsqueeze(1),
-            #                                       x.boxes.xywh), dim=1).detach().cpu().numpy(), columns=['class', 'confidence', 'x', 'y', 'w', 'h']) for x in detections]
         return [(i, d) for i, d in enumerate(out)]
 
     def _process(self, detections):
@@ -74,18 +71,27 @@ class ChildDetector:
         df = pd.concat(dfs).reset_index(drop=True)
         return df
 
-    def detect(self, video_path, out_path):
-        detections_path = out_path.replace('.csv', '.pkl')
+    def detect(self, video_path, out_path=None):
         if osp.exists(out_path):
-            return pd.read_csv(out_path)
-        if osp.exists(detections_path):
-            detections = read_pkl(detections_path)
-        else:
-            detections = self._detect(video_path)
-            write_pkl(detections, detections_path)
+            return self.load(out_path)
+        detections = self._detect(video_path)
         df = self._process(detections)
-        df.to_csv(out_path, index=False)
-        return df
+        data = DetectionData(detections_raw=detections, detections_processed=df)
+        if out_path is not None:
+            data.save(out_path)
+        return data
+
+        # detections_path = out_path.replace('.csv', '.pkl')
+        # if osp.exists(out_path):
+        #     return pd.read_csv(out_path)
+        # if osp.exists(detections_path):
+        #     detections = read_pkl(detections_path)
+        # else:
+        #     detections = self._detect(video_path)
+        #     write_pkl(detections, detections_path)
+        # df = self._process(detections)
+        # df.to_csv(out_path, index=False)
+        # return df
 
     # @staticmethod
     # def temporal_consistency(curr, prev_frames, next_frames, iou_threshold=0.5):
