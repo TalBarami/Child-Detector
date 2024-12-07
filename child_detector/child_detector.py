@@ -42,41 +42,13 @@ class ChildDetector:
                                                  x.boxes.xywh), dim=1).detach().cpu().numpy(), columns=['_class', 'confidence_adult', 'confidence_child', 'x', 'y', 'w', 'h']) for x in detections]
         return [(i, d) for i, d in enumerate(out)]
 
-    def _process(self, detections):
-        if type(detections) is str:
-            detections = read_pkl(out_path)
-        dfs = []
-        for frame, df in detections:
-            df['confidence'] = (df['confidence_child'] - df['confidence_adult'] + 1) / 2
-            to_remove = set()
-            if df.empty:
-                df = pd.DataFrame([[np.nan] * len(df.columns)], columns=df.columns)
-            elif len(df) > 1:
-                boxes = xywh2xyxy(df[['x', 'y', 'w', 'h']].values)
-                for i in range(len(boxes)):
-                    for j in range(i + 1, len(boxes)):
-                        boxes_iou = iou(boxes[i], boxes[j])
-                        if boxes_iou > self.duplication_threshold:
-                            to_remove.add(j if df['confidence'].iloc[i] > df['confidence'].iloc[j] else i)
-            df['frame'] = frame
-            # if frame > n:
-            #     _n = n // 2
-            #     prev, curr, next = [d.dropna() for d in dfs[-n:-n//2]], dfs[-n//2].dropna(), [d.dropna() for d in dfs[-n//2+1:]]
-            #     prev, next = [d for d in prev if not d.empty], [d for d in next if not d.empty]
-            #     if not curr.empty and (len(prev) > 0 or len(next) > 0):
-            #         curr = ChildDetector.temporal_consistency(curr, prev, next)
-            #         dfs[-n//2] = curr
-
-            dfs.append(df.drop(list(to_remove)).reset_index(drop=True))
-        df = pd.concat(dfs).reset_index(drop=True)
-        return df
-
     def detect(self, video_path, out_path=None):
         if osp.exists(out_path):
             return self.load(out_path)
         detections = self._detect(video_path)
-        df = self._process(detections)
-        data = DetectionData(detections_raw=detections, detections_processed=df)
+        data = DetectionsData(detections, duplication_threshold=self.duplication_threshold)
+        # df = self._process(detections)
+        # data = DetectionData(detections_raw=detections, detections_processed=df)
         if out_path is not None:
             data.save(out_path)
         return data
