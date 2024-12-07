@@ -40,45 +40,16 @@ class ChildDetector:
                                                  x.boxes.data[:, -2].unsqueeze(1),
                                                  x.boxes.data[:, -1].unsqueeze(1),
                                                  x.boxes.xywh), dim=1).detach().cpu().numpy(), columns=['_class', 'confidence_adult', 'confidence_child', 'x', 'y', 'w', 'h']) for x in detections]
-        return [(i, d) for i, d in enumerate(out)]
+        df = pd.concat(out, keys=range(len(out)))
+        df.reset_index(level=0, inplace=True)
+        df.rename(columns={'level_0': 'frame'}, inplace=True)
+        return df
 
     def detect(self, video_path, out_path=None):
         if osp.exists(out_path):
-            return self.load(out_path)
+            return DetectionsData.load(out_path)
         detections = self._detect(video_path)
         data = DetectionsData(detections, duplication_threshold=self.duplication_threshold)
-        # df = self._process(detections)
-        # data = DetectionData(detections_raw=detections, detections_processed=df)
         if out_path is not None:
             data.save(out_path)
         return data
-
-        # detections_path = out_path.replace('.csv', '.pkl')
-        # if osp.exists(out_path):
-        #     return pd.read_csv(out_path)
-        # if osp.exists(detections_path):
-        #     detections = read_pkl(detections_path)
-        # else:
-        #     detections = self._detect(video_path)
-        #     write_pkl(detections, detections_path)
-        # df = self._process(detections)
-        # df.to_csv(out_path, index=False)
-        # return df
-
-    # @staticmethod
-    # def temporal_consistency(curr, prev_frames, next_frames, iou_threshold=0.5):
-    #     curr_boxes = xywh2xyxy(curr[['x', 'y', 'w', 'h']].values)
-    #     for i, curr_row in curr.iterrows():
-    #         label_votes = [curr_row['class']]
-    #         for neighbor in prev_frames + next_frames:
-    #             if neighbor.empty:
-    #                 continue
-    #             neighbor_boxes = xywh2xyxy(neighbor[['x', 'y', 'w', 'h']].values)
-    #             for j, neighbor_row in neighbor.iterrows():
-    #                 if iou(curr_boxes[i], neighbor_boxes[j]) > iou_threshold:
-    #                     label_votes.append(neighbor_row['class'])
-    #         label_counts = Counter(label_votes)
-    #         majority_label = label_counts.most_common(1)[0][0]
-    #         curr.at[i, 'class'] = majority_label
-    #     return curr
-

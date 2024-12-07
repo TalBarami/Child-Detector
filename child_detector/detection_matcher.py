@@ -10,31 +10,18 @@ from taltools.io.files import read_pkl
 from child_detector.detection_data import DetectionsData
 from child_detector.child_detector import ChildDetector
 
-class ChildMatcher(ABC):
+class ChildMatcher:
     def __init__(self, confidence_threshold, iou_threshold, interpolation_threshold, tolerance):
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
         self.interpolation_threshold = interpolation_threshold
         self.tolerance = tolerance
 
-    # def _interpolate(self, _cboxes):
-    #     cboxes = _cboxes.copy()
-    #     missing = cboxes['x'].isna()
-    #     gap_starts = missing & ~missing.shift(1, fill_value=False)
-    #     gap_ends = missing & ~missing.shift(-1, fill_value=False)
-    #     gap_start_indices = cboxes.index[gap_starts].tolist()
-    #     gap_end_indices = cboxes.index[gap_ends].tolist()
-    #     interpolated = cboxes[['x', 'y', 'w', 'h', 'confidence']].interpolate(method='spline', order=2, limit_direction='both')
-    #     for start, end in zip(gap_start_indices, gap_end_indices):
-    #         gap_length = end - start + 1
-    #         if gap_length <= self.interpolation_threshold:
-    #             cboxes.loc[start:end, ['x', 'y', 'w', 'h', 'confidence']] = interpolated.loc[start:end, ['x', 'y', 'w', 'h', 'confidence']].interpolate(method='linear', limit_direction='both')
-    #     return cboxes
-
-    def _match(self, pboxes, detections):
-        if type(detections) is str:
-            detections = DetectionsData.load(detections)
-        detections['class'] = (detections['confidence'] > self.confidence_threshold).astype(int)
+    def match(self, pboxes, _detections):
+        if type(_detections) is str:
+            _detections = DetectionsData.load(_detections)
+        detections = _detections.detections
+        detections['class'] = (detections['confidence'] > self.confidence_threshold).astype(int) # TODO: Fix...
         T1, T2 = pboxes.shape[0], detections['frame'].max()+1
         if np.abs(T1-T2) > self.tolerance:
             raise IndexError(f'Length mismatch: skeleton({T1}) - detections({T2})')
@@ -59,31 +46,3 @@ class ChildMatcher(ABC):
             if best_idx != -1 and best_score > self.iou_threshold:
                 cids[f] = best_idx
         return cids
-
-    @abstractmethod
-    def match(self, data, detections):
-        pass
-
-
-
-class SkeletonMatcher(ChildMatcher):
-    def __init__(self, confidence_threshold, iou_threshold, interpolation_threshold, tolerance):
-        super().__init__(confidence_threshold, iou_threshold, interpolation_threshold, tolerance)
-
-    def match(self, skeleton, detections):
-        if type(skeleton) is str:
-            skeleton = SkeletonData.load(skeleton)
-        sboxes = skeleton.bounding_boxes()
-        cids = self._match(sboxes, detections)
-
-class FacialMatcher(ChildMatcher):
-    def __init__(self, confidence_threshold, iou_threshold, interpolation_threshold, tolerance):
-        super().__init__(confidence_threshold, iou_threshold, interpolation_threshold, tolerance)
-
-    def match(self, facial_data, detections):
-        if type(facial_data) is str:
-            facial_data = pd.read_csv(facial_data)
-        if type(detections) is str:
-            detections = read_pkl(detections)
-        # TODO: match facial_data with children
-        return facial_data
