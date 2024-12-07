@@ -1,3 +1,5 @@
+from taltools.io.files import read_pkl, write_pkl
+
 class DetectionsData:
     def __init__(self, detections_raw, detections_processed):
         self.detections_raw = detections_raw
