@@ -20,8 +20,8 @@ class ChildMatcher:
     def match(self, pboxes, _detections):
         if type(_detections) is str:
             _detections = DetectionsData.load(_detections)
-        detections = _detections.detections
-        detections['class'] = (detections['confidence'] > self.confidence_threshold).astype(int) # TODO: Fix...
+        detections = _detections.detections.reset_index()
+        detections['class'] = (detections['confidence'] > self.confidence_threshold).astype(int)
         T1, T2 = pboxes.shape[0], detections['frame'].max()+1
         if np.abs(T1-T2) > self.tolerance:
             raise IndexError(f'Length mismatch: skeleton({T1}) - detections({T2})')

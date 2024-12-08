@@ -19,12 +19,12 @@ class DetectionsData:
 
     @staticmethod
     def load(detections_path, duplication_threshold=0.9):
-        return DetectionsData(pd.read_csv(detections_path), duplication_threshold)
+        return DetectionsData(pd.read_csv(detections_path).set_index('frame', drop=True), duplication_threshold)
 
     def _process(self):
         dfs = []
-        frames = pd.DataFrame({'frame': np.arange(0, self._detections['frame'].max() + 1)})
-        for _, df in self._detections.groupby('frame'):
+        frames = pd.DataFrame({'frame': np.arange(0, self._detections.index.max() + 1)})
+        for frame, df in self._detections.groupby('frame'):
             df = df.reset_index(drop=True)
             df['confidence'] = (df['confidence_child'] - df['confidence_adult'] + 1) / 2
             to_remove = set()
@@ -36,7 +36,8 @@ class DetectionsData:
                         if boxes_iou > self.duplication_threshold:
                             to_remove.add(j if df['confidence'].iloc[i] > df['confidence'].iloc[j] else i)
             df = df.drop(list(to_remove)).reset_index(drop=True)
+            df['frame'] = frame
             dfs.append(df)
         df = pd.concat(dfs).sort_values(by='frame')
-        df = pd.merge(frames, df, on='frame', how='left').reset_index(drop=True)
+        df = pd.merge(frames, df, on='frame', how='left').set_index('frame', drop=True)
         return df
