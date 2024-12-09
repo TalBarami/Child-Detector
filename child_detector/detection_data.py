@@ -3,9 +3,10 @@ import pandas as pd
 from taltools.cv.bounding_boxes import xywh2xyxy, iou
 
 class DetectionsData:
-    def __init__(self, detections, duplication_threshold=0.9):
+    def __init__(self, detections, confidence_threshold=0.6, duplication_threshold=0.9):
         self._detections = detections
         self._detections_processed = None
+        self.confidence_threshold = confidence_threshold
         self.duplication_threshold = duplication_threshold
 
     @property
@@ -18,8 +19,8 @@ class DetectionsData:
         self._detections.to_csv(detections_path, index=False)
 
     @staticmethod
-    def load(detections_path, duplication_threshold=0.9):
-        return DetectionsData(pd.read_csv(detections_path).set_index('frame', drop=True), duplication_threshold)
+    def load(detections_path, confidence_threshold=0.6, duplication_threshold=0.9):
+        return DetectionsData(pd.read_csv(detections_path).set_index('frame', drop=True), confidence_threshold, duplication_threshold)
 
     def _process(self):
         dfs = []
@@ -27,6 +28,9 @@ class DetectionsData:
         for frame, df in self._detections.groupby('frame'):
             df = df.reset_index(drop=True)
             df['confidence'] = (df['confidence_child'] - df['confidence_adult'] + 1) / 2
+            df['label'] = 0
+            max_conf, max_idx = df['confidence'].max(), df['confidence'].idxmax()
+            df.loc[max_idx, 'label'] = 1 if max_conf >= self.confidence_threshold else 0
             to_remove = set()
             if len(df) > 1:
                 boxes = xywh2xyxy(df[['x', 'y', 'w', 'h']].values)
