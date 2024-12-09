@@ -11,8 +11,7 @@ from child_detector.detection_data import DetectionsData
 from child_detector.child_detector import ChildDetector
 
 class ChildMatcher:
-    def __init__(self, confidence_threshold, iou_threshold, interpolation_threshold, tolerance):
-        self.confidence_threshold = confidence_threshold
+    def __init__(self, iou_threshold, interpolation_threshold, tolerance):
         self.iou_threshold = iou_threshold
         self.interpolation_threshold = interpolation_threshold
         self.tolerance = tolerance
@@ -20,16 +19,12 @@ class ChildMatcher:
     def match(self, pboxes, _detections):
         if type(_detections) is str:
             _detections = DetectionsData.load(_detections)
-        detections = _detections.detections.reset_index()
-        detections['class'] = (detections['confidence'] > self.confidence_threshold).astype(int)
-        T1, T2 = pboxes.shape[0], detections['frame'].max()+1
+        detections = _detections.detections
+        T1, T2 = pboxes.shape[0], detections.index.max()+1
         if np.abs(T1-T2) > self.tolerance:
             raise IndexError(f'Length mismatch: skeleton({T1}) - detections({T2})')
-        cboxes = detections[detections['class'] == 1]
-        cids = cboxes.groupby('frame')['confidence'].idxmax()
-        cboxes = cboxes.loc[cids].set_index('frame')
-        # cboxes = self._interpolate(_cboxes)
-        _aboxes = detections[detections['class'] == 0].set_index('frame')
+        cboxes = detections[detections['label'] == 1]
+        _aboxes = detections[detections['label'] == 0]
         cids = np.ones(T1) * -1
         for f, row in cboxes.iterrows():
             boxes = xywh2xyxy(pboxes[f])
