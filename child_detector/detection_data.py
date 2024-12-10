@@ -13,6 +13,41 @@ def compute_iou_matrix(boxes):
     return iou_matrix
 
 
+def compute_iou_matrix_opt(boxes):
+    """
+    Compute the IoU matrix for a set of bounding boxes using vectorized operations.
+
+    Parameters:
+        boxes (numpy.ndarray): An array of shape (N, 4), where each row is [x1, y1, x2, y2].
+
+    Returns:
+        numpy.ndarray: An NxN IoU matrix.
+    """
+    # Extract coordinates
+    x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+
+    # Compute areas of each box
+    areas = (x2 - x1) * (y2 - y1)
+
+    # Broadcast to calculate intersection
+    x1_inter = np.maximum(x1[:, None], x1[None, :])
+    y1_inter = np.maximum(y1[:, None], y1[None, :])
+    x2_inter = np.minimum(x2[:, None], x2[None, :])
+    y2_inter = np.minimum(y2[:, None], y2[None, :])
+
+    inter_width = np.maximum(0, x2_inter - x1_inter)
+    inter_height = np.maximum(0, y2_inter - y1_inter)
+    intersection = inter_width * inter_height
+
+    # Calculate union
+    union = areas[:, None] + areas[None, :] - intersection
+
+    # Avoid division by zero
+    iou_matrix = np.where(union > 0, intersection / union, 0)
+
+    return iou_matrix
+
+
 class DetectionsData:
     def __init__(self, detections, confidence_threshold=0.6, duplication_threshold=0.9):
         self._detections = detections
@@ -89,6 +124,54 @@ class DetectionsData:
             if len(df) > 1:
                 boxes = xywh2xyxy(df[['x', 'y', 'w', 'h']].values)
                 iou_matrix = compute_iou_matrix(boxes)
+                to_remove = set()
+
+                # Iterate over IoU matrix rows
+                for i, iou_row in enumerate(iou_matrix):
+                    if i in to_remove:
+                        continue
+                    duplicates = np.where(iou_row > self.duplication_threshold)[0]
+                    for j in duplicates:
+                        if j <= i or j in to_remove:
+                            continue
+                        to_remove.add(j if df['confidence'].iloc[i] > df['confidence'].iloc[j] else i)
+
+                # Drop duplicate rows
+                df = df.drop(list(to_remove)).reset_index(drop=True)
+
+            # Append the processed frame DataFrame
+            df['frame'] = frame
+            dfs.append(df)
+
+        # Combine all processed frames and merge with the complete frame DataFrame
+        df = pd.concat(dfs, ignore_index=True).sort_values(by='frame')
+        df = pd.merge(frames, df, on='frame', how='left').set_index('frame', drop=True)
+        return df
+
+    def _process3(self):
+        # Create a complete DataFrame for all frames
+        frames = pd.DataFrame({'frame': np.arange(0, self._detections.index.max() + 1)})
+
+        # Initialize a list to store processed DataFrame chunks
+        dfs = []
+
+        # Group the detections by frame and process each frame
+        for frame, df in self._detections.groupby('frame'):
+            # Reset the index and calculate confidence values
+            df = df.reset_index(drop=True)
+            df['confidence'] = (df['confidence_child'] - df['confidence_adult'] + 1) / 2
+            df['label'] = 0
+
+            # Identify the highest confidence detection in the frame
+            max_conf = df['confidence'].max()
+            if max_conf >= self.confidence_threshold:
+                max_idx = df['confidence'].idxmax()
+                df.loc[max_idx, 'label'] = 1
+
+            # Handle duplicate detections based on IoU
+            if len(df) > 1:
+                boxes = xywh2xyxy(df[['x', 'y', 'w', 'h']].values)
+                iou_matrix = compute_iou_matrix_opt(boxes)
                 to_remove = set()
 
                 # Iterate over IoU matrix rows
