@@ -2,6 +2,17 @@ import numpy as np
 import pandas as pd
 from taltools.cv.bounding_boxes import xywh2xyxy, iou
 
+def compute_iou_matrix(boxes):
+    """Compute the IoU matrix for a set of boxes."""
+    n = len(boxes)
+    iou_matrix = np.zeros((n, n), dtype=np.float32)
+    for i in range(n):
+        for j in range(i + 1, n):
+            iou_matrix[i, j] = iou(boxes[i], boxes[j])
+            iou_matrix[j, i] = iou_matrix[i, j]  # Symmetric
+    return iou_matrix
+
+
 class DetectionsData:
     def __init__(self, detections, confidence_threshold=0.6, duplication_threshold=0.9):
         self._detections = detections
