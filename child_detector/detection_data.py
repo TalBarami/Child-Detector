@@ -15,6 +15,14 @@ class DetectionsData:
             self._detections_processed = self._process()
         return self._detections_processed
 
+    @property
+    def child(self):
+        return self.detections[self.detections['label'] == 1]
+
+    @property
+    def adults(self):
+        return self.detections[self.detections['label'] == 0]
+
     def save(self, detections_path):
         self._detections.to_csv(detections_path, index=False)
 
