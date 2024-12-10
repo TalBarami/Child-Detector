@@ -53,3 +53,51 @@ class DetectionsData:
         df = pd.concat(dfs).sort_values(by='frame')
         df = pd.merge(frames, df, on='frame', how='left').set_index('frame', drop=True)
         return df
+
+    def _process2(self):
+        # Create a complete DataFrame for all frames
+        frames = pd.DataFrame({'frame': np.arange(0, self._detections.index.max() + 1)})
+
+        # Initialize a list to store processed DataFrame chunks
+        dfs = []
+
+        # Group the detections by frame and process each frame
+        for frame, df in self._detections.groupby('frame'):
+            # Reset the index and calculate confidence values
+            df = df.reset_index(drop=True)
+            df['confidence'] = (df['confidence_child'] - df['confidence_adult'] + 1) / 2
+            df['label'] = 0
+
+            # Identify the highest confidence detection in the frame
+            max_conf = df['confidence'].max()
+            if max_conf >= self.confidence_threshold:
+                max_idx = df['confidence'].idxmax()
+                df.loc[max_idx, 'label'] = 1
+
+            # Handle duplicate detections based on IoU
+            if len(df) > 1:
+                boxes = xywh2xyxy(df[['x', 'y', 'w', 'h']].values)
+                iou_matrix = compute_iou_matrix(boxes)
+                to_remove = set()
+
+                # Iterate over IoU matrix rows
+                for i, iou_row in enumerate(iou_matrix):
+                    if i in to_remove:
+                        continue
+                    duplicates = np.where(iou_row > self.duplication_threshold)[0]
+                    for j in duplicates:
+                        if j <= i or j in to_remove:
+                            continue
+                        to_remove.add(j if df['confidence'].iloc[i] > df['confidence'].iloc[j] else i)
+
+                # Drop duplicate rows
+                df = df.drop(list(to_remove)).reset_index(drop=True)
+
+            # Append the processed frame DataFrame
+            df['frame'] = frame
+            dfs.append(df)
+
+        # Combine all processed frames and merge with the complete frame DataFrame
+        df = pd.concat(dfs, ignore_index=True).sort_values(by='frame')
+        df = pd.merge(frames, df, on='frame', how='left').set_index('frame', drop=True)
+        return df
