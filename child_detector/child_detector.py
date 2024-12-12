@@ -17,8 +17,7 @@ from taltools.io.files import read_pkl, write_pkl
 from child_detector.confidence_overrider import override_conf
 from child_detector.detection_data import DetectionsData
 
-
-MODEL_PATH = osp.join(Path(__file__).parent.parent, 'resources', 'models', 'child_detector_241115.pt')
+MODEL_PATH = read_json(Path.home().joinpath('.ancan', 'location_mapping.json'))['child_detector']
 
 class ChildDetector:
     def __init__(self, model_path=MODEL_PATH, duplication_threshold=0.9, batch_size=128, device=None):
