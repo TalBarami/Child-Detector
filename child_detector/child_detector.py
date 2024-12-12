@@ -12,7 +12,7 @@ from ultralytics import YOLO
 import pandas as pd
 from taltools.cv.bounding_boxes import xywh2xyxy, iou
 from taltools.cv.iterable_video_dataset import IterableVideoDataset
-from taltools.io.files import read_pkl, write_pkl
+from taltools.io.files import read_pkl, write_pkl, read_json
 
 from child_detector.confidence_overrider import override_conf
 from child_detector.detection_data import DetectionsData
