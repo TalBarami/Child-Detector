@@ -25,7 +25,7 @@ class ChildMatcher:
             raise IndexError(f'Length mismatch: skeleton({T1}) - detections({T2})')
         cboxes = detections[detections['label'] == 1]
         _aboxes = detections[detections['label'] == 0]
-        cids = np.ones(T1) * -1
+        cids = (np.ones(T1) * -1).astype(np.int8)
         for f, row in cboxes.iterrows():
             boxes = xywh2xyxy(pboxes[f])
             cbox = xywh2xyxy(row[['x', 'y', 'w', 'h']].values).squeeze()
