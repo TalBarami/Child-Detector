@@ -39,7 +39,7 @@ class DetectionsData:
 
     @staticmethod
     def load(detections_path, confidence_threshold=0.6, duplication_threshold=0.03):
-        return DetectionsData(pd.read_csv(detections_path).set_index('frame', drop=True), confidence_threshold, duplication_threshold)
+        return DetectionsData(pd.read_csv(detections_path), confidence_threshold, duplication_threshold)
 
     def remove_duplicates(self, df):
         def filter_duplicates(group):
@@ -68,16 +68,13 @@ class DetectionsData:
         return df.drop(remove_indices).reset_index(drop=True)
 
     def _process(self):
-        detections = self._detections.copy().reset_index()
+        detections = self._detections.copy().reset_index(drop=True)
         detections[['x1', 'y1', 'x2', 'y2']] = (detections[['x', 'y', 'x', 'y']] + (detections[['w', 'h', 'w', 'h']].values / 2 * [-1, -1, 1, 1])).values
         detections['diag'] = np.sqrt(detections['w'] ** 2 + detections['h'] **2)
         detections['confidence'] = (detections['confidence_child'] - detections['confidence_adult'] + 1) / 2
         detections = self.remove_duplicates(detections)
-        detections['label'] = 0
+        detections.loc[detections.dropna().index, 'label'] = 0
         valid = detections[detections['confidence'] >= self.confidence_threshold]
         max_indices = valid.groupby('frame')['confidence'].idxmax()
         detections.loc[max_indices, 'label'] = 1
-        # frames = pd.DataFrame({'frame': np.arange(0, self._detections.index.max() + 1)})
-        # df = pd.concat(dfs, ignore_index=True).sort_values(by='frame')
-        # df = pd.merge(frames, df, on='frame', how='left').set_index('frame', drop=True)
         return detections.set_index('frame')

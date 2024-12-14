@@ -23,6 +23,7 @@ class ChildMatcher:
         T1, T2 = pboxes.shape[0], detections.index.max()+1
         if np.abs(T1-T2) > self.tolerance:
             raise IndexError(f'Length mismatch: skeleton({T1}) - detections({T2})')
+        detections = detections.dropna()
         cboxes = detections[detections['label'] == 1]
         _aboxes = detections[detections['label'] == 0]
         cids = (np.ones(T1) * -1).astype(np.int8)
