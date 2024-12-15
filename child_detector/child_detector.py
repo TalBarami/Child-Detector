@@ -45,6 +45,7 @@ class ChildDetector:
         df = pd.concat(out, ignore_index=True).set_index('frame')
         _missing = pd.DataFrame(index=list(set(range(idx + 1)) - set(df.index)), columns=cols).rename_axis('frame')
         df = pd.concat([df, _missing], ignore_index=False).sort_index().reset_index()
+        df.n_frames = idx+1
         return df
 
     def detect(self, video_path, out_path=None):

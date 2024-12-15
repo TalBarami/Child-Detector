@@ -67,6 +67,32 @@ class DetectionsData:
             remove_indices.update(filter_duplicates(group))
         return df.drop(remove_indices).reset_index(drop=True)
 
+    def brief_segments(self):
+        df = self.detections
+        frame_summary = df.groupby('frame').agg(child_detected=('label', 'any')).reset_index()
+        frame_summary['segment'] = (frame_summary['child_detected'] != frame_summary['child_detected'].shift()).cumsum()
+        segments = frame_summary.groupby('segment').agg(
+            start_frame=('frame', 'first'),
+            end_frame=('frame', 'last'),
+            child_detected=('child_detected', 'first'),
+            length=('child_detected', 'size')
+        ).reset_index(drop=True)
+        threshold = 25  # Define a threshold for "brief" segments
+        context_frames = 1
+        brief_segments = []
+        for idx, row in segments.iterrows():
+            if row['length'] <= threshold:
+                if idx > 0 and idx < len(segments) - 1:
+                    prev_segment = segments.iloc[idx - 1]
+                    next_segment = segments.iloc[idx + 1]
+                    if (prev_segment['child_detected'] != row['child_detected'] and
+                            next_segment['child_detected'] != row['child_detected'] and
+                            prev_segment['length'] >= context_frames and
+                            next_segment['length'] >= context_frames):
+                        brief_segments.append(row)
+        brief_segments = pd.DataFrame(brief_segments)
+        return brief_segments
+
     def _process(self):
         detections = self._detections.copy().reset_index(drop=True)
         detections[['x1', 'y1', 'x2', 'y2']] = (detections[['x', 'y', 'x', 'y']] + (detections[['w', 'h', 'w', 'h']].values / 2 * [-1, -1, 1, 1])).values
