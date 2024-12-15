@@ -17,6 +17,7 @@ class DetectionsData:
     def __init__(self, detections, confidence_threshold=0.6, duplication_threshold=0.9):
         self._detections = detections
         self._detections_processed = None
+        self._brief_segments = None
         self.confidence_threshold = confidence_threshold
         self.duplication_threshold = duplication_threshold
 
@@ -67,7 +68,14 @@ class DetectionsData:
             remove_indices.update(filter_duplicates(group))
         return df.drop(remove_indices).reset_index(drop=True)
 
+    @property
     def brief_segments(self):
+        if self._brief_segments is None:
+            self._brief_segments = self._brief_segments()
+        return self._brief_segments
+
+
+    def _brief_segments(self):
         df = self.detections
         frame_summary = df.groupby('frame').agg(child_detected=('label', 'any')).reset_index()
         frame_summary['segment'] = (frame_summary['child_detected'] != frame_summary['child_detected'].shift()).cumsum()
