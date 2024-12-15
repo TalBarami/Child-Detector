@@ -14,12 +14,13 @@ def compute_iou_matrix(boxes):
     return iou_matrix
 
 class DetectionsData:
-    def __init__(self, detections, confidence_threshold=0.6, duplication_threshold=0.9):
+    def __init__(self, detections, confidence_threshold=0.6, duplication_threshold=0.9, brief_threshold=25):
         self._detections = detections
         self._detections_processed = None
         self._brief_segments = None
         self.confidence_threshold = confidence_threshold
         self.duplication_threshold = duplication_threshold
+        self.brief_threshold = brief_threshold
 
     @property
     def detections(self):
@@ -71,11 +72,11 @@ class DetectionsData:
     @property
     def brief_segments(self):
         if self._brief_segments is None:
-            self._brief_segments = self._brief_segments()
+            self._brief_segments = self._detect_brief_segments()
         return self._brief_segments
 
 
-    def _brief_segments(self):
+    def _detect_brief_segments(self):
         df = self.detections
         frame_summary = df.groupby('frame').agg(child_detected=('label', 'any')).reset_index()
         frame_summary['segment'] = (frame_summary['child_detected'] != frame_summary['child_detected'].shift()).cumsum()
@@ -85,7 +86,7 @@ class DetectionsData:
             child_detected=('child_detected', 'first'),
             length=('child_detected', 'size')
         ).reset_index(drop=True)
-        threshold = 25  # Define a threshold for "brief" segments
+        threshold = self.brief_threshold
         context_frames = 1
         brief_segments = []
         for idx, row in segments.iterrows():
