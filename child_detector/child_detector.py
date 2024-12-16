@@ -37,6 +37,7 @@ class ChildDetector:
         idx = 0
         for frames_batch in dataloader:
             detections, idx = self._detect_batch(frames_batch, idx)
+            out += detections
             # detections = self.model(frames_batch)
             # out += [pd.DataFrame(data=torch.cat((x.boxes.data[:, -3].unsqueeze(1),
             #                                      x.boxes.data[:, -2].unsqueeze(1),
