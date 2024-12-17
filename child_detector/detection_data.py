@@ -21,12 +21,18 @@ class DetectionsData:
         self.confidence_threshold = confidence_threshold
         self.duplication_threshold = duplication_threshold
         self.brief_threshold = brief_threshold
+        # self.head_height_ratio = 0.25
+        # self.head_width_ratio = 1
 
     @property
     def detections(self):
         if self._detections_processed is None:
             self._detections_processed = self._process()
         return self._detections_processed
+
+    # @property
+    # def faces(self):
+    #     return self.detections[['head_x', 'head_y', 'head_w', 'head_h', 'confidence_child', 'confidence_adult', 'confidence', 'label']].rename({'head_x': 'x', 'head_y': 'y', 'head_w': 'w', 'head_h': 'h'}, axis=1)
 
     @property
     def child(self):
@@ -37,7 +43,7 @@ class DetectionsData:
         return self.detections[self.detections['label'] == 0]
 
     def save(self, detections_path):
-        self._detections.to_csv(detections_path)
+        self._detections.to_csv(detections_path, index=False)
 
     @staticmethod
     def load(detections_path, confidence_threshold=0.6, duplication_threshold=0.03):
@@ -105,6 +111,10 @@ class DetectionsData:
     def _process(self):
         detections = self._detections.copy().reset_index(drop=True)
         detections[['x1', 'y1', 'x2', 'y2']] = (detections[['x', 'y', 'x', 'y']] + (detections[['w', 'h', 'w', 'h']].values / 2 * [-1, -1, 1, 1])).values
+        # detections['head_h'] = detections['h'] * self.head_height_ratio
+        # detections['head_w'] = detections['w'] * self.head_width_ratio
+        # detections['head_x'] = detections['x']
+        # detections['head_y'] = detections['y'] - (detections['h'] - detections['head_h']) / 2
         detections['diag'] = np.sqrt(detections['w'] ** 2 + detections['h'] **2)
         detections['confidence'] = (detections['confidence_child'] - detections['confidence_adult'] + 1) / 2
         detections = self.remove_duplicates(detections)
