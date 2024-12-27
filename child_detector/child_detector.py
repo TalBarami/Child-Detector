@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from sympy.codegen.cnodes import static
+from taltools.cv.videos import get_video_properties
 from torch.utils.data import DataLoader
 from ultralytics import YOLO
 import pandas as pd
@@ -31,6 +32,7 @@ class ChildDetector:
         logging.getLogger().handlers = handlers
 
     def _detect(self, video_path):
+        (width, height), fps, _, _ = get_video_properties(video_path)
         dataset = IterableVideoDataset(video_path)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, collate_fn=lambda x: x)
         out = []
@@ -49,6 +51,9 @@ class ChildDetector:
         _missing = pd.DataFrame(index=list(set(range(idx + 1)) - set(df.index)), columns=self.cols).rename_axis('frame')
         df = pd.concat([df, _missing], ignore_index=False).sort_index().reset_index()
         df.n_frames = idx+1
+        df.fps = fps
+        df.width = width
+        df.height = height
         return df
 
     def _detect_batch(self, data_batch, idx=0):
