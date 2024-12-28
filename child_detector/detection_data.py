@@ -40,8 +40,8 @@ class DetectionsData:
         self._detections.to_csv(detections_path, index=False)
 
     @staticmethod
-    def load(detections_path, confidence_threshold=0.6, duplication_threshold=0.03):
-        return DetectionsData(pd.read_csv(detections_path), confidence_threshold, duplication_threshold)
+    def load(detections_path, confidence_threshold=0.6, duplication_threshold=0.03, brief_threshold=25):
+        return DetectionsData(pd.read_csv(detections_path), confidence_threshold, duplication_threshold, brief_threshold)
 
     def remove_duplicates(self, df):
         def filter_duplicates(group):

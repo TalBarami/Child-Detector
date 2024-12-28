@@ -1,23 +1,22 @@
 import logging
-import os
-from collections import Counter
 from os import path as osp
 from pathlib import Path
 
-import numpy as np
+import cv2
+import pandas as pd
 import torch
-from sympy.codegen.cnodes import static
+from taltools.cv.iterable_video_dataset import IterableVideoDataset
 from taltools.cv.videos import get_video_properties
+from taltools.io.files import read_json
 from torch.utils.data import DataLoader
 from ultralytics import YOLO
-import pandas as pd
-from taltools.cv.bounding_boxes import xywh2xyxy, iou
-from taltools.cv.iterable_video_dataset import IterableVideoDataset
-from taltools.io.files import read_pkl, write_pkl, read_json
 
 from child_detector.confidence_overrider import override_conf
 from child_detector.detection_data import DetectionsData
 
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
 MODEL_PATH = read_json(Path.home().joinpath('.ancan', 'location_mapping.json'))['child_detector']
 
 class ChildDetector:
@@ -40,13 +39,6 @@ class ChildDetector:
         for frames_batch in dataloader:
             detections, idx = self._detect_batch(frames_batch, idx)
             out += detections
-            # detections = self.model(frames_batch)
-            # out += [pd.DataFrame(data=torch.cat((x.boxes.data[:, -3].unsqueeze(1),
-            #                                      x.boxes.data[:, -2].unsqueeze(1),
-            #                                      x.boxes.data[:, -1].unsqueeze(1),
-            #                                      x.boxes.xywh), dim=1).detach().cpu().numpy(),
-            #                      columns=self.cols).assign(frame=idx+i) for i, x in enumerate(detections)]
-            # idx += len(detections)
         df = pd.concat(out, ignore_index=True).set_index('frame')
         _missing = pd.DataFrame(index=list(set(range(idx + 1)) - set(df.index)), columns=self.cols).rename_axis('frame')
         df = pd.concat([df, _missing], ignore_index=False).sort_index().reset_index()

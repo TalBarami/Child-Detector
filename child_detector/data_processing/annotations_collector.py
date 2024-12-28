@@ -84,22 +84,37 @@ class AnnotationsCollector:
 
         if self.old_data_path:
             for set_type in ['train', 'val']:
-                for data_type in ['images', 'labels']:
-                    old_dir = osp.join(self.old_data_path, set_type, data_type)
-                    new_dir = osp.join(self.out_dir, data_type, set_type)
-                    for f in os.listdir(old_dir):
-                        if not osp.exists(osp.join(new_dir, f)):
-                            shutil.copy(osp.join(old_dir, f), new_dir)
+                old_img_dir = osp.join(self.old_data_path, set_type, 'images')
+                new_img_dir = osp.join(self.out_dir, 'images', set_type)
+                old_lbl_dir = osp.join(self.old_data_path, set_type, 'labels')
+                new_lbl_dir = osp.join(self.out_dir, 'labels', set_type)
+                for f in os.listdir(old_img_dir):
+                    if not osp.exists(osp.join(new_img_dir, f)):
+                        shutil.copy(osp.join(old_img_dir, f), new_img_dir)
+                for f in os.listdir(old_lbl_dir):
+                    with open(osp.join(old_lbl_dir, f), 'r') as file:
+                        boxes = np.array([list(map(float, l.strip().split())) for l in file.readlines()])[:]
+                    try:
+                        if len(boxes) > 0:
+                            boxes[:, 3] *= 2
+                            boxes[:, 4] *= 2.25
+                            boxes[:, 2] -= boxes[:, 4] * 0.05
+                            labels, boxes = boxes[:, 0].astype(int), boxes[:, 1:]
+                        with open(osp.join(new_lbl_dir, f), 'w') as file:
+                            if boxes.any():
+                                for label, box in zip(labels, boxes):
+                                    file.write(str(label) + ' ' + ' '.join(list(map(str, list(box)))) + '\n')
+                    except Exception as e:
+                        print(1)
 
 
 def train_test_split(df, val_size=0.2, test_size=0.1, random_state=42):
     test_locations = ["Shamir_medical_Center (Asaf Ha'rofeh)", "Judah's Lab"]
-    df = add_patient_info(df)
+    df = add_patient_info(df, video_name_col='basename')
     df['location'] = df['location'].apply(lambda l: l if l in test_locations else 'Soroka')
     cids = df[~df['location'].isin(test_locations)]['child_key'].unique()
 
     y = df[df['child_key'].isin(cids)].groupby('child_key').first()[['gender', 'age_bin']]
-    missing = y[y.isna().any(axis=1)]
     y = y.dropna()
     cids = y.index
 
@@ -116,17 +131,23 @@ if __name__ == '__main__':
     root = r'Z:\Users\TalBarami\ChildDetect'
     out_dir = r'E:\datasets\child_detection'
     dataset_path = osp.join(out_dir, 'dataset.csv')
-    if osp.exists(dataset_path):
-        df = pd.read_csv(dataset_path)
-    else:
-        files = pd.read_csv(osp.join(root, 'annotations.csv'))
-        files = files.drop_duplicates(subset='assessment').set_index('assessment')
-        df = pd.concat([pd.read_csv(osp.join(root, 'shaked.csv')), pd.read_csv(osp.join(root, 'noa.csv'))])
-        df = df[(df['status'] == 'OK') | (df['status'] == 'No child')]
-        df['child_key'] = df['basename'].apply(lambda s: s.split('_')[0])
-        df['assessment'] = df['basename'].apply(lambda s: '_'.join(s.split('_')[:-2]))
-        df['location'] = df['assessment'].apply(lambda n: files.loc[n]['location'])
-        df = train_test_split(df)
-        df.to_csv(dataset_path, index=False)
+    # if osp.exists(dataset_path):
+    #     df = pd.read_csv(dataset_path)
+    # else:
+    files = pd.read_csv(osp.join(root, 'annotations.csv'))
+    files = files.drop_duplicates(subset='assessment').set_index('assessment')
+    old_ann_root = r'Z:\Users\TalBarami\ChildDetect\deprecated'
+
+    df = pd.concat([pd.read_csv(osp.join(root, 'shaked.csv')), pd.read_csv(osp.join(root, 'noa.csv'))] +
+                   [pd.read_csv(osp.join(old_ann_root, f)) for f in os.listdir(old_ann_root) if f.endswith('.csv') and ('noa' in f or 'shaked' in f)])
+    df = df[(df['status'] == 'OK') | (df['status'] == 'No child') | (df['status'] == 'No Child')]
+    df = df.drop_duplicates(subset=['basename', 'start_frame'])
+    df = df[df['segment_name'].apply(lambda p: osp.exists(osp.join(root, 'data', f'{p}.mp4')) and osp.exists(osp.join(root, 'data', f'{p}.pkl')))]
+    # df['_id'] = df.apply(lambda row: f'{row["basename"]}_{row["start_frame"]}', axis=1)
+    df['child_key'] = df['basename'].apply(lambda s: s.split('_')[0])
+    df['assessment'] = df['basename'].apply(lambda s: '_'.join(s.split('_')[:-2]))
+    df['location'] = df['assessment'].apply(lambda n: files.loc[n]['location'])
+    df = train_test_split(df)
+    df.to_csv(dataset_path, index=False)
     ann = AnnotationsCollector(df, root, out_dir, old_data_path=r'Z:\Users\TalBarami\ChildDetect\training\child_detect\old_data')
     ann.collect_data(10, visualize=True)
