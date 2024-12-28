@@ -9,6 +9,10 @@ from child_detector.data_processing.yolo_tracker import YOLOTracker
 from taltools.io.files import init_directories, write_pkl
 from taltools.logging.print_logger import PrintLogger
 
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
+
 RESOURCES_ROOT = osp.join(Path(__file__).parent.parent, 'resources')
 
 logger = PrintLogger(name='data_initializer')
@@ -115,7 +119,7 @@ if __name__ == '__main__':
 
     sampler = UniformSampler(300, 300, p=0.1, root=root)
     # TODO: Remove later...
-    files = files[files['location'].isin(["Shamir_medical_Center (Asaf Ha'rofeh)", "Judah's Lab"])].reset_index(drop=True)
+    files = files[files['location'].isin(["Shamir_medical_Center (Asaf Ha'rofeh)", "Judah's Lab"]) | files['child_key'].isin([1030000606, 1032641008, 683757931, 684000682, 699364708, 685885561, 684226150, 684212023, 707289343, 702304117])].reset_index(drop=True)
     n = files.shape[0]
     for i, row in files.iterrows():
         logger.info(f'({i}/{n}) Processing {row["basename"]}...')
