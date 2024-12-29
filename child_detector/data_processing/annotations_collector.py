@@ -129,25 +129,25 @@ def train_test_split(df, val_size=0.2, test_size=0.1, random_state=42):
 
 if __name__ == '__main__':
     root = r'Z:\Users\TalBarami\ChildDetect'
-    out_dir = r'E:\datasets\child_detection'
+    out_dir = r'Z:\Users\TalBarami\ChildDetect\training\child_detect'
     dataset_path = osp.join(out_dir, 'dataset.csv')
-    # if osp.exists(dataset_path):
-    #     df = pd.read_csv(dataset_path)
-    # else:
-    files = pd.read_csv(osp.join(root, 'annotations.csv'))
-    files = files.drop_duplicates(subset='assessment').set_index('assessment')
-    old_ann_root = r'Z:\Users\TalBarami\ChildDetect\deprecated'
+    if osp.exists(dataset_path):
+        df = pd.read_csv(dataset_path)
+    else:
+        files = pd.read_csv(osp.join(root, 'annotations.csv'))
+        files = files.drop_duplicates(subset='assessment').set_index('assessment')
+        old_ann_root = r'Z:\Users\TalBarami\ChildDetect\deprecated'
 
-    df = pd.concat([pd.read_csv(osp.join(root, 'shaked.csv')), pd.read_csv(osp.join(root, 'noa.csv'))] +
-                   [pd.read_csv(osp.join(old_ann_root, f)) for f in os.listdir(old_ann_root) if f.endswith('.csv') and ('noa' in f or 'shaked' in f)])
-    df = df[(df['status'] == 'OK') | (df['status'] == 'No child') | (df['status'] == 'No Child')]
-    df = df.drop_duplicates(subset=['basename', 'start_frame'])
-    df = df[df['segment_name'].apply(lambda p: osp.exists(osp.join(root, 'data', f'{p}.mp4')) and osp.exists(osp.join(root, 'data', f'{p}.pkl')))]
-    # df['_id'] = df.apply(lambda row: f'{row["basename"]}_{row["start_frame"]}', axis=1)
-    df['child_key'] = df['basename'].apply(lambda s: s.split('_')[0])
-    df['assessment'] = df['basename'].apply(lambda s: '_'.join(s.split('_')[:-2]))
-    df['location'] = df['assessment'].apply(lambda n: files.loc[n]['location'])
-    df = train_test_split(df)
-    df.to_csv(dataset_path, index=False)
+        df = pd.concat([pd.read_csv(osp.join(root, 'shaked.csv')), pd.read_csv(osp.join(root, 'noa.csv'))] +
+                       [pd.read_csv(osp.join(old_ann_root, f)) for f in os.listdir(old_ann_root) if f.endswith('.csv') and ('noa' in f or 'shaked' in f)])
+        df = df[(df['status'] == 'OK') | (df['status'] == 'No child') | (df['status'] == 'No Child')]
+        df = df.drop_duplicates(subset=['basename', 'start_frame'])
+        df = df[df['segment_name'].apply(lambda p: osp.exists(osp.join(root, 'data', f'{p}.mp4')) and osp.exists(osp.join(root, 'data', f'{p}.pkl')))]
+        # df['_id'] = df.apply(lambda row: f'{row["basename"]}_{row["start_frame"]}', axis=1)
+        df['child_key'] = df['basename'].apply(lambda s: s.split('_')[0])
+        df['assessment'] = df['basename'].apply(lambda s: '_'.join(s.split('_')[:-2]))
+        df['location'] = df['assessment'].apply(lambda n: files.loc[n]['location'])
+        df = train_test_split(df)
+        df.to_csv(dataset_path, index=False)
     ann = AnnotationsCollector(df, root, out_dir, old_data_path=r'Z:\Users\TalBarami\ChildDetect\training\child_detect\old_data')
     ann.collect_data(10, visualize=True)
