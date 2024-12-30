@@ -92,20 +92,19 @@ class AnnotationsCollector:
                     if not osp.exists(osp.join(new_img_dir, f)):
                         shutil.copy(osp.join(old_img_dir, f), new_img_dir)
                 for f in os.listdir(old_lbl_dir):
-                    with open(osp.join(old_lbl_dir, f), 'r') as file:
-                        boxes = np.array([list(map(float, l.strip().split())) for l in file.readlines()])[:]
-                    try:
-                        if len(boxes) > 0:
-                            boxes[:, 3] *= 2
-                            boxes[:, 4] *= 2.25
-                            boxes[:, 2] -= boxes[:, 4] * 0.05
-                            labels, boxes = boxes[:, 0].astype(int), boxes[:, 1:]
-                        with open(osp.join(new_lbl_dir, f), 'w') as file:
-                            if boxes.any():
-                                for label, box in zip(labels, boxes):
-                                    file.write(str(label) + ' ' + ' '.join(list(map(str, list(box)))) + '\n')
-                    except Exception as e:
-                        print(1)
+                    boxes = np.loadtxt(osp.join(old_lbl_dir, f))
+                    if len(boxes) > 0:
+                        boxes = np.unique(boxes, axis=0)
+                        boxes[:, 3] *= 2
+                        boxes[:, 4] *= 2.25
+                        boxes[:, 2] -= boxes[:, 4] * 0.05
+                        labels, boxes = boxes[:, 0].astype(int), boxes[:, 1:]
+                        boxes = np.clip(boxes, 0, 1)
+                    with open(osp.join(new_lbl_dir, f), 'w') as file:
+                        if boxes.any():
+                            for label, box in zip(labels, boxes):
+                                file.write(str(label) + ' ' + ' '.join(list(map(str, list(box)))) + '\n')
+
 
 
 def train_test_split(df, val_size=0.2, test_size=0.1, random_state=42):
@@ -129,6 +128,7 @@ def train_test_split(df, val_size=0.2, test_size=0.1, random_state=42):
 
 if __name__ == '__main__':
     root = r'Z:\Users\TalBarami\ChildDetect'
+    # out_dir = r'E:\datasets\child_detection'
     out_dir = r'Z:\Users\TalBarami\ChildDetect\training\child_detect'
     dataset_path = osp.join(out_dir, 'dataset.csv')
     if osp.exists(dataset_path):

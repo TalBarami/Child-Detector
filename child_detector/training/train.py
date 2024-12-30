@@ -7,7 +7,7 @@ if __name__ == '__main__':
     model_path = osp.join(r'D:\repos\Child-Detector\runs\detect\train\weights\last.pt')
     resume = True
     if not osp.exists(model_path):
-        model_path = "yolov8n.pt"
+        model_path = "yolo11x.pt"
         resume = False
     device = ['0']
     model = YOLO(model_path)
