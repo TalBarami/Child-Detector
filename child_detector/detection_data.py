@@ -107,7 +107,7 @@ class DetectionsData:
         detections[['x1', 'y1', 'x2', 'y2']] = (detections[['x', 'y', 'x', 'y']] + (detections[['w', 'h', 'w', 'h']].values / 2 * [-1, -1, 1, 1])).values
         detections['diag'] = np.sqrt(detections['w'] ** 2 + detections['h'] **2)
         detections['confidence'] = (detections['confidence_child'] - detections['confidence_adult'] + 1) / 2
-        detections = self.remove_duplicates(detections)
+        # detections = self.remove_duplicates(detections)
         detections.loc[detections.dropna().index, 'label'] = 0
         valid = detections[detections['confidence'] >= self.confidence_threshold]
         max_indices = valid.groupby('frame')['confidence'].idxmax()
