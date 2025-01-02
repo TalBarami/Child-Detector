@@ -39,13 +39,11 @@ class ChildDetector:
         for frames_batch in dataloader:
             detections, idx = self._detect_batch(frames_batch, idx)
             out += detections
-        df = pd.concat(out, ignore_index=True).set_index('frame')
-        _missing = pd.DataFrame(index=list(set(range(idx + 1)) - set(df.index)), columns=self.cols).rename_axis('frame')
-        df = pd.concat([df, _missing], ignore_index=False).sort_index().reset_index()
-        df.n_frames = idx+1
-        df.fps = fps
-        df.width = width
-        df.height = height
+        df = pd.concat(out, ignore_index=True)
+        df.attrs |= {'n_frames': idx+1,
+                     'fps': fps,
+                     'width': width,
+                     'height': height}
         return df
 
     def _detect_batch(self, data_batch, idx=0):
