@@ -3,12 +3,12 @@ import pandas as pd
 
 class DetectionsData:
     def __init__(self, detections, confidence_threshold=0.6, duplication_threshold=0.9, brief_threshold=25):
-        self._detections = detections
+        self._detections_raw = detections
         self.confidence_threshold = confidence_threshold
         self.duplication_threshold = duplication_threshold
         self.brief_threshold = brief_threshold
 
-        self._detections_processed = self._process()
+        self._detections = self._process()
         self.F, self.M = self.detections.attrs['n_frames'], self.detections['frame_offset'].max()+1
         self._numpy = self._create_numpy()
         self._brief_segments = None
@@ -36,7 +36,7 @@ class DetectionsData:
 
     @property
     def detections(self):
-        return self._detections_processed
+        return self._detections
 
     @property
     def child(self):
@@ -54,9 +54,9 @@ class DetectionsData:
 
 
     def save(self, detections_path):
-        self._detections.to_hdf(detections_path, key='detections', mode='w')
+        self._detections_raw.to_hdf(detections_path, key='detections', mode='w')
         with pd.HDFStore(detections_path) as store:
-            store.get_storer('detections').attrs.metadata = self._detections.attrs
+            store.get_storer('detections').attrs.metadata = self._detections_raw.attrs
 
     @staticmethod
     def load(detections_path, confidence_threshold=0.6, duplication_threshold=0.03, brief_threshold=25):
@@ -120,17 +120,18 @@ class DetectionsData:
 
     def _create_numpy(self):
         cols = ['x', 'y', 'w', 'h', 'x1', 'y1', 'x2', 'y2', 'diag', 'confidence_adult', 'confidence_child', 'confidence', 'label']
-        unique_frames = self.detections['frame'].unique()
-        frame_indices = pd.Categorical(self.detections['frame'], categories=unique_frames).codes
-        person_indices = self.detections['frame_offset'].values
+        df = self.detections
+        unique_frames = df['frame'].unique()
+        frame_indices = pd.Categorical(df['frame'], categories=unique_frames).codes
+        person_indices = df['frame_offset'].values
 
-        arr = np.empty((self.F, self.M, len(cols)))
-        vals = self.detections[cols].to_numpy()
+        arr = np.zeros((self.F, self.M, len(cols)))
+        vals = df[cols].to_numpy()
         arr[frame_indices, person_indices, :] = vals
         return arr
 
     def _process(self):
-        detections = self._detections.copy().reset_index(drop=True)
+        detections = self._detections_raw.copy().reset_index(drop=True)
         detections[['x', 'y', 'w', 'h']] = detections[['x', 'y', 'w', 'h']].astype(int)
         detections[['x1', 'y1', 'x2', 'y2']] = (detections[['x', 'y', 'x', 'y']] + (detections[['w', 'h', 'w', 'h']].values / 2 * [-1, -1, 1, 1])).values.astype(int)
         detections['diag'] = np.sqrt(detections['w'] ** 2 + detections['h'] **2)
